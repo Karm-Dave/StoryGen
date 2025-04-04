@@ -1,158 +1,222 @@
 .story-history {
   padding: 2rem;
-  background-color: var(--surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  background-color: var(--bg-color);
+  border-radius: 8px;
+  animation: fadeIn 0.5s ease-out;
 }
 
 .story-history h2 {
-  font-size: 1.875rem;
-  font-weight: 600;
+  font-family: var(--font-heading);
+  color: var(--heading-color);
+  font-size: 2rem;
+  font-weight: 700;
   margin-bottom: 2rem;
-  color: var(--text-primary);
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--accent-primary);
 }
 
-.empty-state {
-  text-align: center;
-  padding: 4rem 2rem;
-  color: var(--text-secondary);
-}
-
-.empty-state p {
-  margin-bottom: 1.5rem;
-}
-
-.story-grid {
+.stories-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
+  gap: 2rem;
+  margin-top: 2rem;
 }
 
 .story-card {
-  background-color: var(--surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  background-color: var(--bg-color-alt);
+  border-radius: 8px;
   overflow: hidden;
-  transition: var(--transition);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-color);
+  transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+  position: relative;
 }
 
 .story-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.story-card-header {
-  padding: 1rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.story-card-header h3 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  color: var(--text-primary);
-}
-
-.story-date {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-}
-
-.story-preview {
-  padding: 1rem;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px var(--shadow-color);
 }
 
 .story-thumbnail {
   width: 100%;
   height: 200px;
   object-fit: cover;
-  border-radius: var(--radius-sm);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.story-content {
+  padding: 1.5rem;
+}
+
+.story-title {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--heading-color);
+  margin-bottom: 0.5rem;
+}
+
+.story-date {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--text-color-medium);
   margin-bottom: 1rem;
 }
 
-.story-preview p {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  line-height: 1.5;
-}
-
-.story-card-footer {
-  padding: 1rem;
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.story-status {
-  display: flex;
-  align-items: center;
-}
-
-.status {
-  font-size: 0.75rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-weight: 500;
-}
-
-.status.complete {
-  background-color: var(--success);
-  color: white;
-}
-
-.status.ongoing {
-  background-color: var(--primary);
-  color: white;
+.story-preview {
+  color: var(--text-color);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .story-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
 }
 
-.action-btn {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  border: none;
-  background: none;
-  cursor: pointer;
-  display: flex;
+.story-action-btn {
+  flex: 1;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-secondary);
-  transition: var(--transition);
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  font-family: var(--font-heading);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-speed);
+  border: none;
+  background: none;
+  color: var(--text-color-medium);
 }
 
-.action-btn:hover {
-  background-color: var(--background);
-  color: var(--text-primary);
+.story-action-btn:hover {
+  background-color: var(--bg-color);
+  color: var(--accent-primary);
 }
 
-.action-btn.delete:hover {
-  background-color: var(--error);
-  color: white;
+.story-action-btn.view {
+  color: var(--accent-tertiary);
+}
+
+.story-action-btn.edit {
+  color: var(--accent-primary);
+}
+
+.story-action-btn.delete {
+  color: var(--error-color);
+}
+
+.story-status {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: var(--font-heading);
+}
+
+.story-status.complete {
+  background-color: var(--success-color);
+  color: var(--bg-color);
+}
+
+.story-status.ongoing {
+  background-color: var(--warning-color);
+  color: var(--bg-color);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  background-color: var(--bg-color-alt);
+  border-radius: 8px;
+  border: 2px dashed var(--border-color);
+}
+
+.empty-state-icon {
+  font-size: 3rem;
+  color: var(--text-color-light);
+  margin-bottom: 1rem;
+}
+
+.empty-state-text {
+  font-family: var(--font-heading);
+  color: var(--text-color-medium);
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
 }
 
 .loading-state {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 300px;
+  min-height: 400px;
 }
 
+/* Loading Shimmer Effect */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--bg-color-alt) 0%,
+    var(--base2) 50%,
+    var(--bg-color-alt) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
   .story-history {
     padding: 1rem;
   }
 
-  .story-grid {
+  .stories-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
 
   .story-card {
-    max-width: 100%;
+    margin-bottom: 1rem;
+  }
+
+  .story-actions {
+    flex-wrap: wrap;
+  }
+
+  .story-action-btn {
+    flex: 1 1 auto;
+    min-width: calc(33.333% - 0.5rem);
   }
 } 
