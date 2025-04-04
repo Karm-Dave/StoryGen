@@ -295,26 +295,9 @@ app.post('/api/continue-story', async (req, res) => {
 // Route to get all stories
 app.get('/api/stories', (req, res) => {
   try {
-    const storiesDir = path.join(__dirname, 'stories');
-    if (!fs.existsSync(storiesDir)) {
-      fs.mkdirSync(storiesDir, { recursive: true });
-      return res.json([]);
-    }
-    
-    const storyFolders = fs.readdirSync(storiesDir);
-    
-    const stories = storyFolders.map(folder => {
-      const metadataPath = path.join(storiesDir, folder, 'metadata.json');
-      if (fs.existsSync(metadataPath)) {
-        const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
-        return {
-          ...metadata,
-          imageUrls: metadata.imageUrls.map(url => url.replace(/\\/g, '/'))
-        };
-      }
-      return null;
-    }).filter(Boolean);
-
+    // Reload stories from disk to ensure we have the latest
+    stories = loadStories();
+    console.log('Returning stories:', stories.length); // Debug log
     res.json(stories);
   } catch (error) {
     console.error('Error fetching stories:', error);
@@ -473,6 +456,68 @@ app.get('/api/statistics', (req, res) => {
     res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 });
+
+// Load stories from disk on startup
+const loadStories = () => {
+  try {
+    const storiesPath = path.join(__dirname, 'stories');
+    if (!fs.existsSync(storiesPath)) {
+      fs.mkdirSync(storiesPath, { recursive: true });
+    }
+    
+    const storyFolders = fs.readdirSync(storiesPath)
+      .filter(folder => fs.statSync(path.join(storiesPath, folder)).isDirectory());
+    
+    console.log('Found story folders:', storyFolders); // Debug log
+    
+    return storyFolders.map(folder => {
+      try {
+        const storyPath = path.join(storiesPath, folder, 'story.json');
+        if (fs.existsSync(storyPath)) {
+          const storyData = JSON.parse(fs.readFileSync(storyPath, 'utf8'));
+          return {
+            ...storyData,
+            id: folder
+          };
+        }
+        return null;
+      } catch (error) {
+        console.error(`Error loading story folder ${folder}:`, error);
+        return null;
+      }
+    }).filter(story => story !== null);
+  } catch (error) {
+    console.error('Error loading stories:', error);
+    return [];
+  }
+};
+
+// Initialize stories array with existing stories
+let stories = loadStories();
+console.log('Loaded stories:', stories.length); // Debug log
+
+// Save story to disk
+const saveStory = (story) => {
+  try {
+    const storiesPath = path.join(__dirname, 'stories');
+    if (!fs.existsSync(storiesPath)) {
+      fs.mkdirSync(storiesPath, { recursive: true });
+    }
+    
+    const storyDir = path.join(storiesPath, story.id);
+    if (!fs.existsSync(storyDir)) {
+      fs.mkdirSync(storyDir, { recursive: true });
+    }
+    
+    const storyPath = path.join(storyDir, 'story.json');
+    fs.writeFileSync(storyPath, JSON.stringify(story, null, 2));
+    console.log('Saved story:', story.id); // Debug log
+    return true;
+  } catch (error) {
+    console.error('Error saving story:', error);
+    return false;
+  }
+};
 
 // Start the server
 app.listen(port, () => {

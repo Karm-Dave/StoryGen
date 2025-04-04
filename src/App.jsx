@@ -32,27 +32,44 @@ function App() {
   useEffect(() => {
     const loadStories = async () => {
       try {
+        console.log('Loading stories from backend...'); // Debug log
         const response = await axios.get('http://localhost:5000/api/stories');
+        console.log('Received stories:', response.data); // Debug log
+        
         if (response.data && Array.isArray(response.data)) {
           // Sort stories by creation date (newest first)
           const sortedStories = response.data.sort((a, b) => 
             new Date(b.createdAt || b.timestamp) - new Date(a.createdAt || a.timestamp)
           );
+          console.log('Setting stories:', sortedStories.length); // Debug log
           setRecentStories(sortedStories);
+        } else {
+          console.error('Invalid stories data received:', response.data);
         }
       } catch (error) {
         console.error('Error loading stories:', error);
+        setError('Failed to load stories. Please try refreshing the page.');
       }
     };
 
     const savedFavorites = localStorage.getItem('favorites');
     if (savedFavorites) {
-      setFavorites(JSON.parse(savedFavorites));
+      try {
+        setFavorites(JSON.parse(savedFavorites));
+      } catch (error) {
+        console.error('Error loading favorites:', error);
+        localStorage.removeItem('favorites');
+      }
     }
     
     const savedDarkMode = localStorage.getItem('darkMode');
     if (savedDarkMode) {
-      setDarkMode(JSON.parse(savedDarkMode));
+      try {
+        setDarkMode(JSON.parse(savedDarkMode));
+      } catch (error) {
+        console.error('Error loading dark mode:', error);
+        localStorage.removeItem('darkMode');
+      }
     }
 
     loadStories();
