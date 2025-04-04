@@ -1,147 +1,108 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FaPlus, FaTrash, FaSpinner, FaCheck, FaTimes } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
-import { FiUpload, FiImage, FiSend, FiX } from 'react-icons/fi';
 import './StoryCreator.css';
 
-const StoryCreator = ({ onStoryCreated, currentStory, onStoryUpdated }) => {
-  const [files, setFiles] = useState([]);
-  const [previewUrls, setPreviewUrls] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [prompt, setPrompt] = useState('');
-  const [dragActive, setDragActive] = useState(false);
+const StoryCreator = () => {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [images, setImages] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedStory, setGeneratedStory] = useState('');
+  const [storyParts, setStoryParts] = useState([]);
+  const [showContinueOptions, setShowContinueOptions] = useState(false);
+  const fileInputRef = useRef(null);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    // Cleanup preview URLs when component unmounts
-    return () => {
-      previewUrls.forEach(url => URL.revokeObjectURL(url));
-    };
-  }, [previewUrls]);
-
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length + images.length > 5) {
+      toast.error('Maximum 5 images allowed');
+      return;
     }
+    setImages([...images, ...files]);
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFiles(e.dataTransfer.files);
-    }
+  const removeImage = (index) => {
+    setImages(images.filter((_, i) => i !== index));
   };
 
-  const handleFiles = (fileList) => {
-    const validFiles = Array.from(fileList).filter(file => 
-      file.type.startsWith('image/')
-    );
-
-    if (validFiles.length === 0) {
-      toast.error('Please select valid image files');
+  const generateStory = async () => {
+    if (!title || !description || images.length === 0) {
+      toast.error('Please fill in all fields and upload at least one image');
       return;
     }
 
-    setFiles(validFiles);
-    
-    // Create preview URLs
-    const urls = validFiles.map(file => URL.createObjectURL(file));
-    setPreviewUrls(prev => {
-      // Revoke old URLs
-      prev.forEach(url => URL.revokeObjectURL(url));
-      return urls;
-    });
-  };
-
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-      handleFiles(e.target.files);
-    }
-  };
-
-  const handleRemoveImage = (index) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
-    setPreviewUrls(prev => {
-      URL.revokeObjectURL(prev[index]);
-      return prev.filter((_, i) => i !== index);
-    });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (files.length === 0 && !currentStory) {
-      toast.error('Please select at least one image');
-      return;
-    }
-
+    setIsGenerating(true);
     try {
-      setLoading(true);
       const formData = new FormData();
-      
-      if (files.length > 0) {
-        files.forEach(file => {
-          formData.append('images', file);
-        });
-      }
+      formData.append('title', title);
+      formData.append('description', description);
+      images.forEach((image) => formData.append('images', image));
 
-      if (prompt) {
-        formData.append('prompt', prompt);
-      }
-
-      if (currentStory) {
-        formData.append('storyId', currentStory.id);
-      }
-
-      const endpoint = currentStory 
-        ? `http://localhost:5000/api/stories/${currentStory.id}/continue`
-        : 'http://localhost:5000/api/generate';
-
-      const response = await fetch(endpoint, {
+      const response = await fetch('http://localhost:5000/api/generate-story', {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create story');
+        throw new Error('Failed to generate story');
       }
 
       const data = await response.json();
-      
-      if (currentStory) {
-        onStoryUpdated(data);
-      } else {
-        onStoryCreated(data);
-      }
-
-      // Reset form
-      setFiles([]);
-      setPreviewUrls(prev => {
-        prev.forEach(url => URL.revokeObjectURL(url));
-        return [];
-      });
-      setPrompt('');
-      toast.success(currentStory ? 'Story continued successfully!' : 'Story created successfully!');
+      setGeneratedStory(data.story);
+      setStoryParts([data.story]);
+      setShowContinueOptions(true);
+      toast.success('Story generated successfully!');
     } catch (error) {
-      console.error('Error creating story:', error);
-      toast.error('Failed to create story');
+      console.error('Error generating story:', error);
+      toast.error('Failed to generate story. Please try again.');
     } finally {
-      setLoading(false);
+      setIsGenerating(false);
     }
   };
 
-  const handleEndStory = async () => {
-    if (!currentStory) return;
-
+  const continueStory = async () => {
+    setIsGenerating(true);
     try {
-      setLoading(true);
-      const response = await fetch(`http://localhost:5000/api/stories/${currentStory.id}/end`, {
+      const response = await fetch('http://localhost:5000/api/continue-story', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          previousParts: storyParts,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to continue story');
+      }
+
+      const data = await response.json();
+      setGeneratedStory(data.story);
+      setStoryParts([...storyParts, data.story]);
+      toast.success('Story continued successfully!');
+    } catch (error) {
+      console.error('Error continuing story:', error);
+      toast.error('Failed to continue story. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const endStory = async () => {
+    setIsGenerating(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/end-story', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          previousParts: storyParts,
+        }),
       });
 
       if (!response.ok) {
@@ -149,121 +110,158 @@ const StoryCreator = ({ onStoryCreated, currentStory, onStoryUpdated }) => {
       }
 
       const data = await response.json();
-      onStoryUpdated(data);
-      toast.success('Story ended successfully!');
+      const finalStory = [...storyParts, data.conclusion].join('\n\n');
+      
+      // Save the complete story
+      await fetch('http://localhost:5000/api/save-story', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          story: finalStory,
+          images: images.map(img => img.name),
+        }),
+      });
+
+      toast.success('Story completed and saved!');
+      navigate('/history');
     } catch (error) {
       console.error('Error ending story:', error);
-      toast.error('Failed to end story');
+      toast.error('Failed to end story. Please try again.');
     } finally {
-      setLoading(false);
+      setIsGenerating(false);
+    }
+  };
+
+  const clearForm = () => {
+    setTitle('');
+    setDescription('');
+    setImages([]);
+    setGeneratedStory('');
+    setStoryParts([]);
+    setShowContinueOptions(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
   return (
-    <div className="create-story">
-      <h2>{currentStory ? 'Continue Story' : 'Create New Story'}</h2>
-      
-      <form onSubmit={handleSubmit} onDragEnter={handleDrag}>
-        <div 
-          className={`upload-section ${dragActive ? 'active' : ''}`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-        >
-          <div className="upload-content">
-            <FiUpload className="upload-icon" />
-            <label className="file-input-label">
-              Choose Images
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handleFileChange}
-                style={{ display: 'none' }}
-                disabled={loading}
-              />
-            </label>
-            <p className="upload-hint">
-              or drag and drop your images here
-            </p>
-          </div>
-
-          {previewUrls.length > 0 && (
-            <div className="preview-images">
-              {previewUrls.map((url, index) => (
-                <div key={index} className="preview-image">
-                  <img src={url} alt={`Preview ${index + 1}`} />
-                  <button
-                    type="button"
-                    className="remove-image"
-                    onClick={() => handleRemoveImage(index)}
-                    disabled={loading}
-                  >
-                    <FiX />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
+    <div className="story-creator">
+      <h2>Create New Story</h2>
+      <div className="story-form">
         <div className="form-group">
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder={currentStory 
-              ? "Enter a prompt to continue the story..."
-              : "Enter a prompt for your story (optional)"}
-            className="form-control"
-            rows="4"
-            disabled={loading}
+          <label htmlFor="title">Story Title</label>
+          <input
+            type="text"
+            id="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Enter story title"
+            className="form-input"
           />
         </div>
 
-        <div className="story-actions">
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={loading || (files.length === 0 && !currentStory)}
-          >
-            {loading ? (
-              <span className="loading-spinner" />
-            ) : (
-              <>
-                <FiSend />
-                {currentStory ? 'Continue Story' : 'Generate Story'}
-              </>
-            )}
-          </button>
-
-          {currentStory && !currentStory.isComplete && (
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleEndStory}
-              disabled={loading}
-            >
-              <FiX />
-              End Story
-            </button>
-          )}
+        <div className="form-group">
+          <label htmlFor="description">Story Description</label>
+          <textarea
+            id="description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Describe your story"
+            className="form-textarea"
+          />
         </div>
-      </form>
 
-      {currentStory && (
-        <div className="current-story">
-          <h3>{currentStory.title}</h3>
-          <p>{currentStory.story}</p>
-          <div className="story-images">
-            {currentStory.imageUrls.map((url, index) => (
-              <div key={index} className="story-image">
-                <img src={url} alt={`Story image ${index + 1}`} />
+        <div className="form-group">
+          <label>Upload Images (Max 5)</label>
+          <div
+            className="upload-section"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+            />
+            <FaPlus className="upload-icon" />
+            <p>Click to upload images</p>
+          </div>
+          <div className="preview-grid">
+            {images.map((image, index) => (
+              <div key={index} className="preview-item">
+                <img
+                  src={URL.createObjectURL(image)}
+                  alt={`Preview ${index + 1}`}
+                />
+                <button
+                  className="remove-image"
+                  onClick={() => removeImage(index)}
+                >
+                  <FaTrash />
+                </button>
               </div>
             ))}
           </div>
         </div>
-      )}
+
+        <div className="action-buttons">
+          <button
+            className="generate-button"
+            onClick={generateStory}
+            disabled={isGenerating}
+          >
+            {isGenerating ? (
+              <>
+                <FaSpinner className="spinner" />
+                Generating...
+              </>
+            ) : (
+              'Generate Story'
+            )}
+          </button>
+          <button className="clear-button" onClick={clearForm}>
+            Clear
+          </button>
+        </div>
+
+        {generatedStory && (
+          <div className="generated-story">
+            <h3>Generated Story</h3>
+            <p>{generatedStory}</p>
+          </div>
+        )}
+
+        {showContinueOptions && (
+          <div className="continue-options">
+            <button
+              className="continue-button"
+              onClick={continueStory}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <>
+                  <FaSpinner className="spinner" />
+                  Generating...
+                </>
+              ) : (
+                'Continue Story'
+              )}
+            </button>
+            <button
+              className="end-button"
+              onClick={endStory}
+              disabled={isGenerating}
+            >
+              End Story
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

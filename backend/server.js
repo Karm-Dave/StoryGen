@@ -477,6 +477,72 @@ app.get('/api/statistics', (req, res) => {
   }
 });
 
+// Continue story endpoint
+app.post('/api/continue-story', async (req, res) => {
+  try {
+    const { previousParts } = req.body;
+    
+    const prompt = `Continue the following story in a creative and engaging way. The story so far:\n\n${previousParts.join('\n\n')}\n\nContinue the story:`;
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const story = response.text();
+    
+    res.json({ story });
+  } catch (error) {
+    console.error('Error continuing story:', error);
+    res.status(500).json({ error: 'Failed to continue story' });
+  }
+});
+
+// End story endpoint
+app.post('/api/end-story', async (req, res) => {
+  try {
+    const { previousParts } = req.body;
+    
+    const prompt = `Write a satisfying conclusion to the following story. The story so far:\n\n${previousParts.join('\n\n')}\n\nWrite a conclusion that wraps up the story:`;
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const conclusion = response.text();
+    
+    res.json({ conclusion });
+  } catch (error) {
+    console.error('Error ending story:', error);
+    res.status(500).json({ error: 'Failed to end story' });
+  }
+});
+
+// Save story endpoint
+app.post('/api/save-story', async (req, res) => {
+  try {
+    const { title, story, images } = req.body;
+    
+    // Create a unique folder for the story
+    const storyFolder = path.join(storiesDir, Date.now().toString());
+    await fs.mkdir(storyFolder, { recursive: true });
+    
+    // Save story metadata
+    const metadata = {
+      title,
+      story,
+      images,
+      createdAt: new Date().toISOString(),
+      isComplete: true
+    };
+    
+    await fs.writeFile(
+      path.join(storyFolder, 'metadata.json'),
+      JSON.stringify(metadata, null, 2)
+    );
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving story:', error);
+    res.status(500).json({ error: 'Failed to save story' });
+  }
+});
+
 // Helper function to save story
 const saveStory = (story) => {
   const storyDir = path.join(__dirname, 'stories', story.id);

@@ -1,104 +1,59 @@
 import React, { useState, useEffect } from 'react';
-import { Toaster } from 'react-hot-toast';
-import { FiPlusCircle, FiClock, FiBarChart2, FiMoon, FiSun } from 'react-icons/fi';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { FaHome, FaHistory, FaChartBar, FaSun, FaMoon } from 'react-icons/fa';
+import './App.css';
 import StoryCreator from './components/StoryCreator';
 import StoryHistory from './components/StoryHistory';
 import Statistics from './components/Statistics';
-import './App.css';
 
 function App() {
-  const [activeView, setActiveView] = useState('create');
-  const [currentStory, setCurrentStory] = useState(null);
-  const [darkMode, setDarkMode] = useState(false);
+  const [theme, setTheme] = useState('light');
 
   useEffect(() => {
-    const isDark = localStorage.getItem('darkMode') === 'true';
-    setDarkMode(isDark);
-    document.documentElement.classList.toggle('dark', isDark);
+    // Check for saved theme preference
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+    document.documentElement.setAttribute('data-theme', savedTheme);
   }, []);
 
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    localStorage.setItem('darkMode', newDarkMode);
-    document.documentElement.classList.toggle('dark', newDarkMode);
-  };
-
-  const handleStoryCreated = (story) => {
-    setCurrentStory(story);
-  };
-
-  const handleStoryUpdated = (story) => {
-    setCurrentStory(story);
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
   };
 
   return (
-    <div className={`app-container ${darkMode ? 'dark' : ''}`}>
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <h1>Story Generator</h1>
-          <button 
-            onClick={toggleDarkMode} 
-            className="theme-toggle"
-            aria-label="Toggle dark mode"
-          >
-            {darkMode ? <FiSun /> : <FiMoon />}
-          </button>
+    <Router>
+      <div className="app">
+        <button className="theme-toggle" onClick={toggleTheme}>
+          {theme === 'light' ? <FaMoon /> : <FaSun />}
+        </button>
+        <div className="sidebar">
+          <nav>
+            <Link to="/" className="nav-link">
+              <FaHome className="nav-icon" />
+              <span>Create Story</span>
+            </Link>
+            <Link to="/history" className="nav-link">
+              <FaHistory className="nav-icon" />
+              <span>Story History</span>
+            </Link>
+            <Link to="/statistics" className="nav-link">
+              <FaChartBar className="nav-icon" />
+              <span>Statistics</span>
+            </Link>
+          </nav>
         </div>
-
-        <nav className="nav-links">
-          <button
-            className={`nav-link ${activeView === 'create' ? 'active' : ''}`}
-            onClick={() => setActiveView('create')}
-          >
-            <FiPlusCircle />
-            Create Story
-          </button>
-          <button
-            className={`nav-link ${activeView === 'history' ? 'active' : ''}`}
-            onClick={() => setActiveView('history')}
-          >
-            <FiClock />
-            History
-          </button>
-          <button
-            className={`nav-link ${activeView === 'statistics' ? 'active' : ''}`}
-            onClick={() => setActiveView('statistics')}
-          >
-            <FiBarChart2 />
-            Statistics
-          </button>
-        </nav>
-      </aside>
-
-      <main className="main-content">
-        {activeView === 'create' && (
-          <StoryCreator
-            onStoryCreated={handleStoryCreated}
-            currentStory={currentStory}
-            onStoryUpdated={handleStoryUpdated}
-          />
-        )}
-        {activeView === 'history' && (
-          <StoryHistory
-            onStorySelect={setCurrentStory}
-            onViewChange={setActiveView}
-          />
-        )}
-        {activeView === 'statistics' && <Statistics />}
-      </main>
-
-      <Toaster
-        position="bottom-right"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: darkMode ? '#1e293b' : '#ffffff',
-            color: darkMode ? '#ffffff' : '#1e293b',
-          },
-        }}
-      />
-    </div>
+        <main className="main-content">
+          <Routes>
+            <Route path="/" element={<StoryCreator />} />
+            <Route path="/history" element={<StoryHistory />} />
+            <Route path="/statistics" element={<Statistics />} />
+          </Routes>
+        </main>
+      </div>
+    </Router>
   );
 }
 

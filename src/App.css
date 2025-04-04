@@ -41,6 +41,28 @@
   --font-body: 'Roboto Mono', monospace;
   --shadow-color: rgba(88, 110, 117, 0.15);
   --transition-speed: 0.3s;
+
+  /* Root variables for light theme */
+  --bg-color: #fdf6e3;
+  --text-color: #586e75;
+  --accent-color: #268bd2;
+  --card-bg: #eee8d5;
+  --border-color: #93a1a1;
+  --hover-bg: #eee8d5;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --success-color: #859900;
+  --warning-color: #b58900;
+  --error-color: #dc322f;
+  --input-bg: #fdf6e3;
+  --input-border: #93a1a1;
+  --input-focus: #268bd2;
+  --button-text: #fdf6e3;
+  --button-hover: #1a6da3;
+  --sidebar-bg: #eee8d5;
+  --sidebar-hover: #fdf6e3;
+  --sidebar-active: #268bd2;
+  --sidebar-text: #586e75;
+  --sidebar-active-text: #fdf6e3;
 }
 
 * {
@@ -345,4 +367,58 @@ body {
   opacity: 0;
   transform: translateY(-20px);
   transition: opacity var(--transition-speed), transform var(--transition-speed);
+}
+
+/* Dark theme variables */
+[data-theme="dark"] {
+  --bg-color: #002b36;
+  --text-color: #93a1a1;
+  --accent-color: #2aa198;
+  --card-bg: #073642;
+  --border-color: #586e75;
+  --hover-bg: #073642;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --success-color: #859900;
+  --warning-color: #b58900;
+  --error-color: #dc322f;
+  --input-bg: #073642;
+  --input-border: #586e75;
+  --input-focus: #2aa198;
+  --button-text: #fdf6e3;
+  --button-hover: #268bd2;
+  --sidebar-bg: #073642;
+  --sidebar-hover: #002b36;
+  --sidebar-active: #2aa198;
+  --sidebar-text: #93a1a1;
+  --sidebar-active-text: #fdf6e3;
+}
+
+/* Theme toggle button */
+.theme-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  background: var(--accent-color);
+  color: var(--button-text);
+  border: none;
+  border-radius: 50%;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px var(--shadow-color);
+  z-index: 1000;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.1);
+  background: var(--button-hover);
+}
+
+.theme-toggle svg {
+  width: 1.25rem;
+  height: 1.25rem;
 }
