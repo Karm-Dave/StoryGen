@@ -55,6 +55,48 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/stories', express.static(path.join(__dirname, 'stories')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Initialize stories array
+let stories = [];
+
+// Load existing stories on startup
+const loadStories = () => {
+  const storiesDir = path.join(__dirname, 'stories');
+  if (!fs.existsSync(storiesDir)) {
+    fs.mkdirSync(storiesDir, { recursive: true });
+    return [];
+  }
+
+  try {
+    const storyFolders = fs.readdirSync(storiesDir);
+    console.log('Found story folders:', storyFolders);
+
+    const loadedStories = storyFolders
+      .map(folderId => {
+        const storyPath = path.join(storiesDir, folderId, 'story.json');
+        if (fs.existsSync(storyPath)) {
+          try {
+            const storyData = JSON.parse(fs.readFileSync(storyPath, 'utf8'));
+            return { ...storyData, id: folderId };
+          } catch (err) {
+            console.error(`Error reading story ${folderId}:`, err);
+            return null;
+          }
+        }
+        return null;
+      })
+      .filter(story => story !== null);
+
+    console.log('Loaded stories:', loadedStories.length);
+    return loadedStories;
+  } catch (error) {
+    console.error('Error loading stories:', error);
+    return [];
+  }
+};
+
+// Initialize stories array
+stories = loadStories();
+
 // Helper function to generate image description
 async function generateImageDescription(imagePath) {
   try {
@@ -196,7 +238,6 @@ app.post('/api/generate-story', upload.array('images'), async (req, res) => {
   try {
     const files = req.files;
     const prompt = req.body.prompt || '';
-    const shouldGenerate = req.body.shouldGenerate === 'true';
     const genre = req.body.genre || 'general';
     const language = req.body.language || 'english';
     const branching = req.body.branching === 'true';
@@ -210,85 +251,128 @@ app.post('/api/generate-story', upload.array('images'), async (req, res) => {
     const storyDir = path.join(__dirname, 'stories', storyId);
     fs.mkdirSync(storyDir, { recursive: true });
 
-    // Copy images to story directory and get descriptions
-    const imagePromises = files.map(async (file) => {
+    // Move files to story directory
+    const imageUrls = files.map(file => {
       const newPath = path.join(storyDir, file.filename);
-      fs.copyFileSync(file.path, newPath);
-      const description = await generateImageDescription(file.path);
-      return {
-        url: `/stories/${storyId}/${file.filename}`,
-        description
-      };
+      fs.renameSync(file.path, newPath);
+      return `/stories/${storyId}/${file.filename}`;
     });
 
-    const imageResults = await Promise.all(imagePromises);
-    const imageDescriptions = imageResults.map(img => img.description).join('\n');
-    const imageUrls = imageResults.map(img => img.url);
+    // Generate image descriptions
+    const imageDescriptions = await Promise.all(
+      imageUrls.map(url => generateImageDescription(path.join(storyDir, url.split('/').pop())))
+    );
 
-    // Generate the story
-    const storyPrompt = `Based on these images:\n${imageDescriptions}\n${prompt}`;
-    const storyContent = await generateStory(storyPrompt, genre, language, branching);
+    // Generate story based on images and prompt
+    const storyPrompt = `${prompt}\n\nImages show: ${imageDescriptions.join(', ')}`;
+    const storyText = await generateStory(storyPrompt, genre, language, branching);
     const title = await generateTitle(storyPrompt);
 
-    // Save story data
-    const storyData = {
+    // Create story object
+    const story = {
       id: storyId,
       title,
-      story: storyContent,
+      story: storyText,
       imageUrls,
-      imageDescriptions,
       genre,
       language,
       branching,
-      timestamp: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isComplete: false
     };
 
+    // Save story to file
     fs.writeFileSync(
       path.join(storyDir, 'story.json'),
-      JSON.stringify(storyData, null, 2)
+      JSON.stringify(story, null, 2)
     );
 
-    res.json(storyData);
+    // Add to stories array
+    stories.push(story);
+
+    res.json(story);
   } catch (error) {
     console.error('Error generating story:', error);
     res.status(500).json({ error: 'Failed to generate story' });
   }
 });
 
-// Route to handle story continuation
+// Route to continue a story
 app.post('/api/continue-story', async (req, res) => {
   try {
     const { storyId, prompt } = req.body;
-    
-    if (!storyId) {
-      return res.status(400).json({ error: 'Story ID is required' });
-    }
+    const storyDir = path.join(__dirname, 'stories', storyId);
+    const storyPath = path.join(storyDir, 'story.json');
 
-    // Read the existing story
-    const storyPath = path.join(__dirname, 'stories', storyId, 'story.json');
     if (!fs.existsSync(storyPath)) {
       return res.status(404).json({ error: 'Story not found' });
     }
 
-    const storyData = JSON.parse(fs.readFileSync(storyPath));
-    const continuationPrompt = `Continue this story:\n\n${storyData.story}\n\nContinuation prompt: ${prompt || 'Continue the story'}`;
+    const story = JSON.parse(fs.readFileSync(storyPath, 'utf8'));
     
-    const continuation = await generateStory(continuationPrompt, storyData.genre, storyData.language, storyData.branching);
-    
-    // Update the story data
-    storyData.story += '\n\n' + continuation;
-    storyData.timestamp = new Date().toISOString();
-    
-    // Save the updated story
-    fs.writeFileSync(storyPath, JSON.stringify(storyData, null, 2));
-    
-    res.json({
-      continuation,
-      fullStory: storyData
-    });
+    // Generate continuation
+    const continuation = await generateStory(
+      `${prompt}\n\nPrevious story:\n${story.story}`,
+      story.genre,
+      story.language,
+      story.branching
+    );
+
+    // Update story
+    story.story += '\n\n' + continuation;
+    story.updatedAt = new Date().toISOString();
+
+    // Save updated story
+    fs.writeFileSync(storyPath, JSON.stringify(story, null, 2));
+
+    // Update in memory
+    stories = stories.map(s => s.id === storyId ? story : s);
+
+    res.json(story);
   } catch (error) {
     console.error('Error continuing story:', error);
     res.status(500).json({ error: 'Failed to continue story' });
+  }
+});
+
+// Route to end a story
+app.post('/api/end-story', async (req, res) => {
+  try {
+    const { storyId, prompt } = req.body;
+    const storyDir = path.join(__dirname, 'stories', storyId);
+    const storyPath = path.join(storyDir, 'story.json');
+
+    if (!fs.existsSync(storyPath)) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    const story = JSON.parse(fs.readFileSync(storyPath, 'utf8'));
+    
+    // Generate conclusion
+    const conclusion = await generateStory(
+      `${prompt || 'Write a satisfying conclusion to this story'}\n\nPrevious story:\n${story.story}`,
+      story.genre,
+      story.language,
+      false // No branching for conclusion
+    );
+
+    // Update story
+    story.story += '\n\n' + conclusion;
+    story.updatedAt = new Date().toISOString();
+    story.isComplete = true;
+    story.completedAt = new Date().toISOString();
+
+    // Save updated story
+    fs.writeFileSync(storyPath, JSON.stringify(story, null, 2));
+
+    // Update in memory
+    stories = stories.map(s => s.id === storyId ? story : s);
+
+    res.json(story);
+  } catch (error) {
+    console.error('Error ending story:', error);
+    res.status(500).json({ error: 'Failed to end story' });
   }
 });
 
@@ -297,11 +381,32 @@ app.get('/api/stories', (req, res) => {
   try {
     // Reload stories from disk to ensure we have the latest
     stories = loadStories();
-    console.log('Returning stories:', stories.length); // Debug log
+    console.log('Returning stories:', stories.length);
     res.json(stories);
   } catch (error) {
-    console.error('Error fetching stories:', error);
-    res.status(500).json({ error: 'Failed to fetch stories' });
+    console.error('Error getting stories:', error);
+    res.status(500).json({ error: 'Failed to get stories' });
+  }
+});
+
+// Route to delete a story
+app.delete('/api/stories/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('Attempting to delete story:', id);
+    const storyDir = path.join(__dirname, 'stories', id);
+
+    if (fs.existsSync(storyDir)) {
+      fs.rmSync(storyDir, { recursive: true, force: true });
+      stories = stories.filter(story => story.id !== id);
+      res.json({ message: 'Story deleted successfully' });
+    } else {
+      console.log('Story not found:', id);
+      res.status(404).json({ error: 'Story not found' });
+    }
+  } catch (error) {
+    console.error('Error deleting story:', error);
+    res.status(500).json({ error: 'Failed to delete story' });
   }
 });
 
@@ -328,76 +433,6 @@ app.get('/api/languages', (req, res) => {
     { id: 'italian', name: 'Italian' }
   ];
   res.json(languages);
-});
-
-// Route to end story with a conclusion
-app.post('/api/end-story', async (req, res) => {
-  try {
-    const { storyId, currentStory } = req.body;
-    
-    const conclusionPrompt = `Please provide a satisfying conclusion to this story in 2-3 sentences: ${currentStory}`;
-    
-    const result = await model.generateContent(conclusionPrompt);
-    const conclusion = result.response.text();
-    
-    // Update the story file with the conclusion
-    const storyDir = path.join(__dirname, 'stories', storyId);
-    const metadataPath = path.join(storyDir, 'metadata.json');
-    
-    if (fs.existsSync(metadataPath)) {
-      const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
-      metadata.story = currentStory + '\n\n' + conclusion;
-      metadata.isCompleted = true;
-      fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-      
-      res.json({
-        success: true,
-        conclusion,
-        story: metadata
-      });
-    } else {
-      res.status(404).json({ error: 'Story not found' });
-    }
-  } catch (error) {
-    console.error('Error ending story:', error);
-    res.status(500).json({ error: 'Failed to end story' });
-  }
-});
-
-// Route to delete a story
-app.delete('/api/stories/:storyId', (req, res) => {
-  try {
-    const { storyId } = req.params;
-    const storyDir = path.join(__dirname, 'stories', storyId);
-    
-    if (fs.existsSync(storyDir)) {
-      fs.rmSync(storyDir, { recursive: true, force: true });
-      res.json({ success: true, message: 'Story deleted successfully' });
-    } else {
-      res.status(404).json({ error: 'Story not found' });
-    }
-  } catch (error) {
-    console.error('Error deleting story:', error);
-    res.status(500).json({ error: 'Failed to delete story' });
-  }
-});
-
-// Route to delete all stories
-app.delete('/api/stories', (req, res) => {
-  try {
-    const storiesDir = path.join(__dirname, 'stories');
-    if (fs.existsSync(storiesDir)) {
-      fs.rmSync(storiesDir, { recursive: true, force: true });
-      fs.mkdirSync(storiesDir);
-      res.json({ success: true, message: 'All stories deleted successfully' });
-    } else {
-      fs.mkdirSync(storiesDir);
-      res.json({ success: true, message: 'Stories directory was empty' });
-    }
-  } catch (error) {
-    console.error('Error deleting all stories:', error);
-    res.status(500).json({ error: 'Failed to delete all stories' });
-  }
 });
 
 // Route to get statistics
@@ -456,45 +491,6 @@ app.get('/api/statistics', (req, res) => {
     res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 });
-
-// Load stories from disk on startup
-const loadStories = () => {
-  try {
-    const storiesPath = path.join(__dirname, 'stories');
-    if (!fs.existsSync(storiesPath)) {
-      fs.mkdirSync(storiesPath, { recursive: true });
-    }
-    
-    const storyFolders = fs.readdirSync(storiesPath)
-      .filter(folder => fs.statSync(path.join(storiesPath, folder)).isDirectory());
-    
-    console.log('Found story folders:', storyFolders); // Debug log
-    
-    return storyFolders.map(folder => {
-      try {
-        const storyPath = path.join(storiesPath, folder, 'story.json');
-        if (fs.existsSync(storyPath)) {
-          const storyData = JSON.parse(fs.readFileSync(storyPath, 'utf8'));
-          return {
-            ...storyData,
-            id: folder
-          };
-        }
-        return null;
-      } catch (error) {
-        console.error(`Error loading story folder ${folder}:`, error);
-        return null;
-      }
-    }).filter(story => story !== null);
-  } catch (error) {
-    console.error('Error loading stories:', error);
-    return [];
-  }
-};
-
-// Initialize stories array with existing stories
-let stories = loadStories();
-console.log('Loaded stories:', stories.length); // Debug log
 
 // Save story to disk
 const saveStory = (story) => {

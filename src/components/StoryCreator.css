@@ -1,0 +1,180 @@
+.story-creator {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.story-creator h2 {
+  margin-bottom: 2rem;
+  color: #2c3e50;
+  text-align: center;
+}
+
+.image-upload {
+  margin-bottom: 2rem;
+}
+
+.upload-label {
+  display: block;
+  width: 100%;
+  padding: 2rem;
+  border: 2px dashed #ccc;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.upload-label:hover {
+  border-color: #3498db;
+  background-color: #f8f9fa;
+}
+
+.upload-placeholder {
+  text-align: center;
+  color: #666;
+}
+
+.upload-placeholder span {
+  display: block;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+.upload-placeholder small {
+  color: #999;
+}
+
+.file-input {
+  display: none;
+}
+
+.image-previews {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.preview-container {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #eee;
+}
+
+.preview-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.prompt-section {
+  margin-bottom: 2rem;
+}
+
+.prompt-input {
+  width: 100%;
+  min-height: 100px;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  resize: vertical;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 1rem;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background-color: #2980b9;
+}
+
+.submit-btn:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+}
+
+.current-story {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid #eee;
+}
+
+.current-story h3 {
+  margin-bottom: 1rem;
+  color: #2c3e50;
+}
+
+.story-preview {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.story-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.story-image {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.story-text {
+  color: #333;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* Dark mode styles */
+.dark-mode .story-creator h2,
+.dark-mode .current-story h3 {
+  color: #fff;
+}
+
+.dark-mode .upload-label {
+  border-color: #444;
+}
+
+.dark-mode .upload-label:hover {
+  border-color: #3498db;
+  background-color: #2d2d2d;
+}
+
+.dark-mode .upload-placeholder {
+  color: #bbb;
+}
+
+.dark-mode .upload-placeholder small {
+  color: #888;
+}
+
+.dark-mode .prompt-input {
+  background-color: #2d2d2d;
+  border-color: #444;
+  color: #fff;
+}
+
+.dark-mode .story-preview {
+  background-color: #2d2d2d;
+}
+
+.dark-mode .story-text {
+  color: #fff;
+} 
