@@ -201,41 +201,32 @@ app.post('/api/generate-story', upload.array('images'), async (req, res) => {
     const language = req.body.language || 'english';
     const branching = req.body.branching === 'true';
 
-    if (!shouldGenerate) {
-      return res.json({ 
-        message: 'Ready to generate',
-        files: files.map(file => `/uploads/${file.filename}`),
-        prompt,
-        genre,
-        language,
-        branching
-      });
-    }
-
     if (!files || files.length === 0) {
       return res.status(400).json({ error: 'No images uploaded' });
     }
 
-    // Create a unique directory for this story
+    // Create a unique story ID and directory
     const storyId = Date.now().toString();
     const storyDir = path.join(__dirname, 'stories', storyId);
     fs.mkdirSync(storyDir, { recursive: true });
 
-    // Save images and get their descriptions
-    const imageDescriptions = [];
-    const imageUrls = [];
-
-    for (const file of files) {
-      const imagePath = path.join(storyDir, file.filename);
-      fs.copyFileSync(file.path, imagePath);
-      imageUrls.push(`/stories/${storyId}/${file.filename}`);
-      
+    // Copy images to story directory and get descriptions
+    const imagePromises = files.map(async (file) => {
+      const newPath = path.join(storyDir, file.filename);
+      fs.copyFileSync(file.path, newPath);
       const description = await generateImageDescription(file.path);
-      imageDescriptions.push(description);
-    }
+      return {
+        url: `/stories/${storyId}/${file.filename}`,
+        description
+      };
+    });
 
-    // Generate story based on image descriptions and prompt
-    const storyPrompt = `${prompt}\n\nImages show: ${imageDescriptions.join(', ')}`;
+    const imageResults = await Promise.all(imagePromises);
+    const imageDescriptions = imageResults.map(img => img.description).join('\n');
+    const imageUrls = imageResults.map(img => img.url);
+
+    // Generate the story
+    const storyPrompt = `Based on these images:\n${imageDescriptions}\n${prompt}`;
     const storyContent = await generateStory(storyPrompt, genre, language, branching);
     const title = await generateTitle(storyPrompt);
 
@@ -245,6 +236,7 @@ app.post('/api/generate-story', upload.array('images'), async (req, res) => {
       title,
       story: storyContent,
       imageUrls,
+      imageDescriptions,
       genre,
       language,
       branching,
@@ -260,6 +252,43 @@ app.post('/api/generate-story', upload.array('images'), async (req, res) => {
   } catch (error) {
     console.error('Error generating story:', error);
     res.status(500).json({ error: 'Failed to generate story' });
+  }
+});
+
+// Route to handle story continuation
+app.post('/api/continue-story', async (req, res) => {
+  try {
+    const { storyId, prompt } = req.body;
+    
+    if (!storyId) {
+      return res.status(400).json({ error: 'Story ID is required' });
+    }
+
+    // Read the existing story
+    const storyPath = path.join(__dirname, 'stories', storyId, 'story.json');
+    if (!fs.existsSync(storyPath)) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    const storyData = JSON.parse(fs.readFileSync(storyPath));
+    const continuationPrompt = `Continue this story:\n\n${storyData.story}\n\nContinuation prompt: ${prompt || 'Continue the story'}`;
+    
+    const continuation = await generateStory(continuationPrompt, storyData.genre, storyData.language, storyData.branching);
+    
+    // Update the story data
+    storyData.story += '\n\n' + continuation;
+    storyData.timestamp = new Date().toISOString();
+    
+    // Save the updated story
+    fs.writeFileSync(storyPath, JSON.stringify(storyData, null, 2));
+    
+    res.json({
+      continuation,
+      fullStory: storyData
+    });
+  } catch (error) {
+    console.error('Error continuing story:', error);
+    res.status(500).json({ error: 'Failed to continue story' });
   }
 });
 
@@ -316,49 +345,6 @@ app.get('/api/languages', (req, res) => {
     { id: 'italian', name: 'Italian' }
   ];
   res.json(languages);
-});
-
-// Route to continue an existing story
-app.post('/api/continue-story', async (req, res) => {
-  try {
-    const { storyId, prompt } = req.body;
-    
-    // Find the story in the stories directory
-    const storyDir = path.join(__dirname, 'stories', storyId);
-    const metadataPath = path.join(storyDir, 'metadata.json');
-    
-    if (!fs.existsSync(metadataPath)) {
-      return res.status(404).json({ error: 'Story not found' });
-    }
-    
-    const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
-    
-    // Generate continuation prompt
-    const continuationPrompt = `Continue the following story in the same style and tone. 
-    ${prompt ? `Additional instructions: ${prompt}` : ''}
-    
-    Original story:
-    ${metadata.story}`;
-    
-    // Generate continuation
-    const result = await model.generateContent(continuationPrompt);
-    const continuation = result.response.text();
-    
-    // Combine original story with continuation
-    const updatedStory = metadata.story + '\n\n' + continuation;
-    
-    // Update metadata
-    metadata.story = updatedStory;
-    metadata.lastUpdated = new Date().toISOString();
-    
-    // Save updated metadata
-    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-    
-    res.json(metadata);
-  } catch (error) {
-    console.error('Error continuing story:', error);
-    res.status(500).json({ error: 'Failed to continue story' });
-  }
 });
 
 // Route to end story with a conclusion

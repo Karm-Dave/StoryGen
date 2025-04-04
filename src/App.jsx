@@ -159,19 +159,29 @@ function App() {
         prompt: prompt || 'Continue the story'
       });
       
-      const continuedStory = {
-        ...story,
-        story: story.story + '\n\n' + response.data.continuation,
-        timestamp: new Date().toISOString()
-      };
+      if (response.data.error) {
+        throw new Error(response.data.error);
+      }
+
+      const updatedStory = response.data.fullStory;
+      setStory(updatedStory);
       
-      setStory(continuedStory);
+      // Update the story in recent stories
       setRecentStories(prev => 
-        prev.map(s => s.id === story.id ? continuedStory : s)
+        prev.map(s => s.id === updatedStory.id ? updatedStory : s)
       );
+      
+      // Update in favorites if it exists there
+      if (favorites.some(f => f.id === updatedStory.id)) {
+        setFavorites(prev =>
+          prev.map(f => f.id === updatedStory.id ? updatedStory : f)
+        );
+      }
+      
+      setPrompt(''); // Clear the prompt after successful continuation
     } catch (error) {
       console.error('Error continuing story:', error);
-      setError('Failed to continue story. Please try again.');
+      setError(error.response?.data?.error || 'Failed to continue story. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -180,9 +190,6 @@ function App() {
   // Handle story selection
   const handleStorySelect = (selectedStory) => {
     setStory(selectedStory);
-    setImages(selectedStory.imageUrls || []);
-    setSelectedGenre(selectedStory.genre || 'general');
-    setSelectedLanguage(selectedStory.language || 'english');
     setActiveTab('story');
   };
 
@@ -214,6 +221,56 @@ function App() {
       localStorage.removeItem('recentStories');
       localStorage.removeItem('favorites');
     }
+  };
+
+  // Render story content
+  const renderStoryContent = () => {
+    if (!story) return null;
+
+    return (
+      <div className="story-content">
+        <h2>{story.title}</h2>
+        <div className="story-images">
+          {story.imageUrls && story.imageUrls.map((url, index) => (
+            <img
+              key={index}
+              src={`http://localhost:5000${url}`}
+              alt={`Story image ${index + 1}`}
+              className="story-image"
+            />
+          ))}
+        </div>
+        <div className="story-text">
+          {story.story.split('\n').map((paragraph, index) => (
+            <p key={index}>{paragraph}</p>
+          ))}
+        </div>
+        <div className="story-actions">
+          <button
+            onClick={() => handleToggleFavorite(story)}
+            className={`favorite-btn ${story.isFavorite ? 'active' : ''}`}
+          >
+            {story.isFavorite ? '★ Remove from Favorites' : '☆ Add to Favorites'}
+          </button>
+          <div className="continue-story">
+            <input
+              type="text"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Enter prompt to continue the story..."
+              className="continue-prompt"
+            />
+            <button
+              onClick={handleContinue}
+              disabled={loading}
+              className="continue-btn"
+            >
+              {loading ? 'Continuing...' : 'Continue Story'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -380,33 +437,7 @@ function App() {
               </button>
             </div>
             
-            <div className="story-content">
-              <div className="story-images">
-                {images.map((image, index) => (
-                  <img key={index} src={image} alt={`Story image ${index + 1}`} />
-                ))}
-              </div>
-              <p>{story.story}</p>
-            </div>
-            
-            <div className="story-action-buttons">
-              <button
-                className="continue-btn"
-                onClick={handleContinue}
-                disabled={loading}
-              >
-                {loading ? 'Continuing...' : 'Continue Story'}
-              </button>
-              <button
-                className="end-btn"
-                onClick={() => {
-                  setStory(null);
-                  setActiveTab('create');
-                }}
-              >
-                End Story
-              </button>
-            </div>
+            {renderStoryContent()}
           </div>
         )}
 
