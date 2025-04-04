@@ -30,20 +30,32 @@ function App() {
 
   // Load saved data on mount
   useEffect(() => {
+    const loadStories = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/api/stories');
+        if (response.data && Array.isArray(response.data)) {
+          // Sort stories by creation date (newest first)
+          const sortedStories = response.data.sort((a, b) => 
+            new Date(b.createdAt || b.timestamp) - new Date(a.createdAt || a.timestamp)
+          );
+          setRecentStories(sortedStories);
+        }
+      } catch (error) {
+        console.error('Error loading stories:', error);
+      }
+    };
+
     const savedFavorites = localStorage.getItem('favorites');
     if (savedFavorites) {
       setFavorites(JSON.parse(savedFavorites));
-    }
-
-    const savedStories = localStorage.getItem('recentStories');
-    if (savedStories) {
-      setRecentStories(JSON.parse(savedStories));
     }
     
     const savedDarkMode = localStorage.getItem('darkMode');
     if (savedDarkMode) {
       setDarkMode(JSON.parse(savedDarkMode));
     }
+
+    loadStories();
   }, []);
 
   // Save data when it changes
@@ -223,6 +235,72 @@ function App() {
     }
   };
 
+  // Handle story deletion
+  const handleDeleteStory = (storyToDelete) => {
+    if (window.confirm('Are you sure you want to delete this story?')) {
+      // Remove from recent stories
+      setRecentStories(prev => prev.filter(s => s.id !== storyToDelete.id));
+      
+      // Remove from favorites if it exists there
+      if (favorites.some(f => f.id === storyToDelete.id)) {
+        setFavorites(prev => prev.filter(f => f.id !== storyToDelete.id));
+      }
+      
+      // If the deleted story is currently being viewed, clear it
+      if (story && story.id === storyToDelete.id) {
+        setStory(null);
+        setActiveTab('create');
+      }
+    }
+  };
+
+  // Handle end story
+  const handleEndStory = async () => {
+    if (!story) return;
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      const response = await axios.post('http://localhost:5000/api/end-story', {
+        storyId: story.id,
+        prompt: prompt || 'Write a satisfying conclusion to this story.'
+      });
+      
+      if (response.data.error) {
+        throw new Error(response.data.error);
+      }
+
+      const concludedStory = response.data.fullStory;
+      
+      // Update the story in recent stories
+      setRecentStories(prev => 
+        prev.map(s => s.id === concludedStory.id ? concludedStory : s)
+      );
+      
+      // Update in favorites if it exists there
+      if (favorites.some(f => f.id === concludedStory.id)) {
+        setFavorites(prev =>
+          prev.map(f => f.id === concludedStory.id ? concludedStory : f)
+        );
+      }
+      
+      // Show the concluded story before clearing
+      setStory(concludedStory);
+      
+      // Wait a moment to show the conclusion
+      setTimeout(() => {
+        setStory(null);
+        setActiveTab('create');
+      }, 2000);
+    } catch (error) {
+      console.error('Error ending story:', error);
+      setError(error.response?.data?.error || 'Failed to end story. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Render story content
   const renderStoryContent = () => {
     if (!story) return null;
@@ -246,12 +324,20 @@ function App() {
           ))}
         </div>
         <div className="story-actions">
-          <button
-            onClick={() => handleToggleFavorite(story)}
-            className={`favorite-btn ${story.isFavorite ? 'active' : ''}`}
-          >
-            {story.isFavorite ? '★ Remove from Favorites' : '☆ Add to Favorites'}
-          </button>
+          <div className="action-buttons">
+            <button
+              onClick={() => handleToggleFavorite(story)}
+              className={`favorite-btn ${story.isFavorite ? 'active' : ''}`}
+            >
+              {story.isFavorite ? '★ Remove from Favorites' : '☆ Add to Favorites'}
+            </button>
+            <button
+              onClick={() => handleDeleteStory(story)}
+              className="delete-btn"
+            >
+              🗑️ Delete Story
+            </button>
+          </div>
           <div className="continue-story">
             <input
               type="text"
@@ -260,13 +346,22 @@ function App() {
               placeholder="Enter prompt to continue the story..."
               className="continue-prompt"
             />
-            <button
-              onClick={handleContinue}
-              disabled={loading}
-              className="continue-btn"
-            >
-              {loading ? 'Continuing...' : 'Continue Story'}
-            </button>
+            <div className="story-controls">
+              <button
+                onClick={handleContinue}
+                disabled={loading}
+                className="continue-btn"
+              >
+                {loading ? 'Continuing...' : 'Continue Story'}
+              </button>
+              <button
+                onClick={handleEndStory}
+                disabled={loading}
+                className="end-btn"
+              >
+                {loading ? 'Ending...' : 'End Story'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -274,7 +369,7 @@ function App() {
   };
 
   return (
-    <div className={`app-container ${darkMode ? 'dark-mode' : ''}`}>
+    <div className={`app ${darkMode ? 'dark-mode' : ''}`}>
       <div className="sidebar">
         <div className="sidebar-header">
           <h1>Story Generator</h1>
@@ -454,6 +549,7 @@ function App() {
               onStorySelect={handleStorySelect}
               favorites={favorites}
               onToggleFavorite={handleToggleFavorite}
+              onDelete={handleDeleteStory}
             />
           </div>
         )}
@@ -466,11 +562,12 @@ function App() {
               onStorySelect={handleStorySelect}
               favorites={favorites}
               onToggleFavorite={handleToggleFavorite}
+              onDelete={handleDeleteStory}
             />
           </div>
         )}
 
-        {activeTab === 'stats' && <Statistics />}
+        {activeTab === 'stats' && <Statistics stories={recentStories} favorites={favorites} />}
       </main>
 
       {loading && (

@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
-const StoryHistory = ({ stories, onStorySelect, favorites, onToggleFavorite }) => {
+const StoryHistory = ({ stories, onStorySelect, favorites, onToggleFavorite, onDelete }) => {
   const formatDate = (timestamp) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -65,6 +65,17 @@ const StoryHistory = ({ stories, onStorySelect, favorites, onToggleFavorite }) =
               </div>
             </div>
           </div>
+          <div className="story-actions">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(story);
+              }}
+              className="delete-btn"
+            >
+              🗑️
+            </button>
+          </div>
         </div>
       ))}
     </div>
@@ -84,7 +95,8 @@ StoryHistory.propTypes = {
   })).isRequired,
   onStorySelect: PropTypes.func.isRequired,
   favorites: PropTypes.array.isRequired,
-  onToggleFavorite: PropTypes.func.isRequired
+  onToggleFavorite: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired
 };
 
 export default StoryHistory; 

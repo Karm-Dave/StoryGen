@@ -1,9 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-import { Pie } from 'react-chartjs-2';
-
-ChartJS.register(ArcElement, Tooltip, Legend);
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer
+} from 'recharts';
 
 const colorPalette = [
   '#2aa198', // cyan
@@ -16,7 +25,7 @@ const colorPalette = [
   '#859900'  // green
 ];
 
-function Statistics() {
+function Statistics({ stories, favorites }) {
   const [stats, setStats] = useState({
     genreStats: {},
     languageStats: {},
@@ -44,50 +53,44 @@ function Statistics() {
     fetchStats();
   }, []);
 
-  const genreChartData = {
-    labels: Object.keys(stats.genreStats),
-    datasets: [{
-      data: Object.values(stats.genreStats),
-      backgroundColor: colorPalette,
-      borderColor: 'rgba(255, 255, 255, 0.2)',
-      borderWidth: 1
-    }]
-  };
+  // Calculate genre distribution
+  const genreData = stories.reduce((acc, story) => {
+    const genre = story.genre || 'general';
+    acc[genre] = (acc[genre] || 0) + 1;
+    return acc;
+  }, {});
 
-  const languageChartData = {
-    labels: Object.keys(stats.languageStats),
-    datasets: [{
-      data: Object.values(stats.languageStats),
-      backgroundColor: colorPalette,
-      borderColor: 'rgba(255, 255, 255, 0.2)',
-      borderWidth: 1
-    }]
-  };
+  const genreChartData = Object.entries(genreData).map(([name, value]) => ({
+    name: name.charAt(0).toUpperCase() + name.slice(1),
+    value
+  }));
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom',
-        labels: {
-          color: 'var(--text)',
-          font: {
-            size: 12
-          },
-          padding: 20
-        }
-      },
-      tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        titleColor: '#fff',
-        bodyColor: '#fff',
-        padding: 12,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        borderWidth: 1
-      }
-    }
-  };
+  // Calculate language distribution
+  const languageData = stories.reduce((acc, story) => {
+    const language = story.language || 'english';
+    acc[language] = (acc[language] || 0) + 1;
+    return acc;
+  }, {});
+
+  const languageChartData = Object.entries(languageData).map(([name, value]) => ({
+    name: name.charAt(0).toUpperCase() + name.slice(1),
+    value
+  }));
+
+  // Calculate stories per day
+  const dailyData = stories.reduce((acc, story) => {
+    const date = new Date(story.timestamp).toLocaleDateString();
+    acc[date] = (acc[date] || 0) + 1;
+    return acc;
+  }, {});
+
+  const dailyChartData = Object.entries(dailyData).map(([date, count]) => ({
+    date,
+    count
+  }));
+
+  // Colors for charts
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
   if (loading) {
     return (
@@ -107,36 +110,86 @@ function Statistics() {
   }
 
   return (
-    <div className="statistics">
-      <div className="stat-card">
-        <h3>Story Overview</h3>
-        <div className="stat-grid">
-          <div className="stat-item">
-            <h4>Total Stories</h4>
-            <p>{stats.totalStories}</p>
-          </div>
-          <div className="stat-item">
-            <h4>Average Words</h4>
-            <p>{Math.round(stats.averageWordsPerStory)}</p>
-          </div>
-          <div className="stat-item">
-            <h4>Languages Used</h4>
-            <p>{Object.keys(stats.languageStats).length}</p>
-          </div>
+    <div className="statistics-container">
+      <h2>Story Statistics</h2>
+      
+      <div className="stats-grid">
+        <div className="stat-card">
+          <h3>Total Stories</h3>
+          <p className="stat-number">{stories.length}</p>
+        </div>
+        
+        <div className="stat-card">
+          <h3>Favorites</h3>
+          <p className="stat-number">{favorites.length}</p>
+        </div>
+        
+        <div className="stat-card">
+          <h3>Average Images per Story</h3>
+          <p className="stat-number">
+            {stories.length > 0
+              ? (stories.reduce((sum, story) => sum + (story.imageUrls?.length || 0), 0) / stories.length).toFixed(1)
+              : 0}
+          </p>
         </div>
       </div>
 
-      <div className="stat-card">
-        <h3>Stories by Genre</h3>
-        <div className="chart-container" style={{ height: '300px' }}>
-          <Pie data={genreChartData} options={chartOptions} />
+      <div className="charts-container">
+        <div className="chart-card">
+          <h3>Stories by Genre</h3>
+          <div className="chart-wrapper">
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={genreChartData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  label
+                >
+                  {genreChartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </div>
 
-      <div className="stat-card">
-        <h3>Stories by Language</h3>
-        <div className="chart-container" style={{ height: '300px' }}>
-          <Pie data={languageChartData} options={chartOptions} />
+        <div className="chart-card">
+          <h3>Stories by Language</h3>
+          <div className="chart-wrapper">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={languageChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="value" fill="#8884d8" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="chart-card">
+          <h3>Stories per Day</h3>
+          <div className="chart-wrapper">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={dailyChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="count" fill="#82ca9d" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
     </div>
