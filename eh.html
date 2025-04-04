@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Normalization Sequence (Solarized Light)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* ---=== CSS: Solarized Light Theme ===--- */
+        :root {
+            /* Solarized Light Palette */
+            --base03:  #002b36; /* Darkest background */
+            --base02:  #073642; /* Dark background */
+            --base01:  #586e75; /* Content dark */
+            --base00:  #657b83; /* Content medium */
+            --base0:   #839496; /* Content light */
+            --base1:   #93a1a1; /* Content lightest */
+            --base2:   #eee8d5; /* Background light */
+            --base3:   #fdf6e3; /* Background lightest (main) */
+            --yellow:  #b58900; /* Gold / PK */
+            --orange:  #cb4b16; /* Warning / Accent */
+            --red:     #dc322f; /* Error */
+            --magenta: #d33682; /* Secondary Accent */
+            --violet:  #6c71c4;
+            --blue:    #268bd2; /* Links / FK? */
+            --cyan:    #2aa198; /* Success / FK? / Accent */
+            --green:   #859900; /* Success alt */
+
+            /* Theme assignments */
+            --bg-color: var(--base3);
+            --bg-color-alt: var(--base2);
+            --text-color: var(--base01);
+            --text-color-medium: var(--base00);
+            --text-color-light: var(--base0);
+            --heading-color: var(--base02);
+            --accent-primary: var(--orange);
+            --accent-secondary: var(--magenta);
+            --accent-tertiary: var(--blue);
+            --border-color: var(--base2);
+            --table-header-bg: var(--base2);
+            --table-row-bg: var(--base3);
+            --table-row-alt-bg: #f7f1e2; /* Slightly darker than base3 */
+            --success-color: var(--cyan);
+            --warning-color: var(--orange);
+            --error-color: var(--red);
+            --pk-color: var(--yellow);
+            --fk-color: var(--blue); /* Using blue for FK */
+            --font-heading: 'Poppins', sans-serif;
+            --font-data: 'Roboto Mono', monospace;
+            --transition-speed-fast: 0.3s;
+            --transition-speed-med: 0.6s;
+            --transition-speed-slow: 1s;
+            --animation-delay: 0.1s;
+            --shadow-color: rgba(88, 110, 117, 0.15); /* base01 with alpha */
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-data);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.7;
+            overflow-x: hidden;
+            padding-bottom: 60px;
+             /* Optional subtle pattern */
+            /* background-image: linear-gradient(rgba(253, 246, 227, 0.98), rgba(253, 246, 227, 0.99)),
+                              url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23eee8d5" fill-opacity="0.4"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E'); */
+        }
+
+        .container {
+            max-width: 1700px;
+            margin: 30px auto;
+            padding: 35px 45px;
+            background: var(--bg-color-alt);
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 5px 25px var(--shadow-color);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 25px;
+            border-bottom: 2px solid var(--accent-primary);
+        }
+        header h1 {
+            font-family: var(--font-heading); font-size: 3.2em; font-weight: 700;
+            color: var(--heading-color); margin-bottom: 15px; letter-spacing: 1px;
+            text-shadow: none; /* Remove glow */
+            animation: none; /* Remove flicker */
+        }
+        header p { font-size: 1.1em; color: var(--text-color-medium); max-width: 800px; margin: 10px auto 0; }
+
+        #status-display {
+            background: var(--bg-color);
+            padding: 12px 20px; margin-bottom: 40px; border-radius: 8px;
+            border: 1px solid var(--border-color); box-shadow: 0 2px 8px var(--shadow-color);
+            text-align: center; font-size: 1.1em; color: var(--text-color-medium);
+        }
+        #status-display span {
+            font-weight: bold; padding: 3px 8px; border-radius: 4px;
+            transition: color 0.3s ease, background-color 0.3s ease; color: var(--base3); /* Light text on colored bg */
+        }
+        #status-display span.info { background-color: var(--warning-color); }
+        #status-display span.success { background-color: var(--success-color); }
+        #status-display span.error { background-color: var(--error-color); }
+
+        #steps-container { display: grid; grid-template-columns: 1fr; gap: 50px; }
+
+        .step {
+            padding: 30px; background: var(--bg-color); border-radius: 8px;
+            border: 1px solid var(--border-color); border-left: 6px solid var(--accent-secondary);
+            opacity: 0.4; transform: translateY(20px) scale(0.99);
+            transition: opacity var(--transition-speed-med) ease-out,
+                        transform var(--transition-speed-med) ease-out,
+                        border-left-color var(--transition-speed-med) ease-out,
+                        box-shadow var(--transition-speed-med) ease-out;
+            box-shadow: 0 4px 15px var(--shadow-color);
+            position: relative;
+        }
+        .step.active {
+             opacity: 1; transform: translateY(0) scale(1); border-left-color: var(--warning-color);
+             box-shadow: 0 8px 30px rgba(203, 75, 22, 0.2); /* Orange shadow */
+        }
+        .step.completed {
+             opacity: 1; transform: translateY(0) scale(1); border-left-color: var(--success-color);
+              box-shadow: 0 4px 15px var(--shadow-color); /* Back to normal shadow */
+         }
+        .step.pending { opacity: 0.4; }
+
+        .step h2 {
+            font-family: var(--font-heading); font-weight: 600; color: var(--heading-color);
+            margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;
+            font-size: 2.0em; text-shadow: none; display: flex; align-items: center; gap: 15px;
+        }
+        .step h2::before {
+            content: attr(data-step-num); font-size: 0.75em; color: var(--base3); background-color: var(--accent-secondary);
+            font-weight: bold; border: none; border-radius: 50%; width: 32px; height: 32px;
+            display: inline-flex; justify-content: center; align-items: center; flex-shrink: 0;
+        }
+        .step.active h2::before { background-color: var(--warning-color); }
+        .step.completed h2::before { background-color: var(--success-color); }
+
+        .explanation {
+            margin-bottom: 30px; background: var(--bg-color-alt); padding: 15px 20px;
+            border-radius: 5px; border-left: 4px solid var(--accent-primary);
+            color: var(--text-color-medium); font-size: 0.95em; box-shadow: none;
+        }
+        .explanation strong { color: var(--text-color); font-weight: bold; }
+        .explanation code {
+             background: var(--base2); padding: 2px 5px; border-radius: 3px;
+             font-family: var(--font-data); color: var(--accent-secondary); border: 1px solid #ddd8c7;
+         }
+         .explanation ul { margin-top: 10px; margin-left: 25px; list-style: disc; }
+         .explanation li { margin-bottom: 5px;}
+         /* Remove ::before icon for standard list */
+         .explanation .dependency {
+             display: block; margin: 8px 0; font-family: var(--font-data); color: var(--orange);
+             background: rgba(203, 75, 22, 0.05); padding: 5px 10px; border-radius: 3px;
+             border: 1px solid rgba(203, 75, 22, 0.2);
+         }
+
+        .step-io-container {
+            margin-top: 25px; padding-top: 15px; border-top: 1px dashed var(--border-color);
+        }
+        .step-io-section { margin-bottom: 30px; }
+        .step-io-section h3 {
+            font-family: var(--font-heading); font-size: 1.3em; font-weight: 600;
+            color: var(--text-color-medium); margin-bottom: 10px; padding-bottom: 5px;
+            border-bottom: 1px solid var(--bg-color-alt); display: inline-block;
+        }
+        .input-tables h3 { color: var(--accent-secondary); border-bottom-color: #eed; } /* Magenta */
+        .output-tables h3 { color: var(--success-color); border-bottom-color: #dee;} /* Cyan */
+
+         .table-container {
+            margin-top: 5px; overflow-x: auto; padding-bottom: 10px;
+            background: none; border-radius: 4px; border: 1px solid var(--border-color);
+        }
+        .table-wrapper {
+             margin-bottom: 25px; opacity: 0;
+             animation: fadeInTable var(--transition-speed-slow) ease-out forwards;
+             animation-delay: var(--animation-delay);
+        }
+         @keyframes fadeInTable { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        table {
+            width: 100%; border-collapse: collapse; font-size: 0.85em; /* Slightly smaller */
+            box-shadow: none; table-layout: auto; min-width: 900px;
+            border: none; /* Remove inner table border, container has one */
+        }
+        caption {
+            font-size: 1.3em; font-weight: 600; caption-side: top; text-align: left;
+            padding: 10px 0; color: var(--accent-tertiary); margin-bottom: 10px;
+            font-family: var(--font-heading); text-shadow: none; border-bottom: 1px solid var(--border-color);
+        }
+        th, td {
+             padding: 10px 14px; /* Smaller padding */
+             text-align: left; border-bottom: 1px solid var(--border-color); border-right: 1px dotted var(--border-color);
+             white-space: nowrap; vertical-align: middle;
+             transition: background-color var(--transition-speed-fast) ease;
+        }
+         td:last-child, th:last-child { border-right: none; }
+         tbody tr:last-child td { border-bottom: none; }
+
+        th {
+            background-color: var(--table-header-bg); color: var(--heading-color); font-weight: bold;
+            text-transform: none; /* No uppercase */ letter-spacing: 0.5px; position: sticky; top: 0; z-index: 10;
+            box-shadow: 0 1px 3px var(--shadow-color); border-bottom-width: 2px; border-bottom-color: var(--base01);
+            border-right: 1px solid var(--border-color);
+        }
+        tbody tr { background-color: var(--table-row-bg); }
+        tbody tr:nth-child(even) { background-color: var(--table-row-alt-bg); }
+        tbody tr:hover { background-color: var(--yellow); color: var(--base03); cursor: default; }
+        tbody tr:hover td { color: var(--base03) !important; } /* Ensure hover text is dark */
+
+        /* Key Highlighting */
+        .pk { font-weight: bold; color: var(--pk-color); }
+        th.pk, td.pk { background-color: rgba(181, 137, 0, 0.08); } /* Yellow tint */
+        .fk { font-style: normal; font-weight: bold; color: var(--fk-color); } /* Bold Blue */
+        th.fk, td.fk { background-color: rgba(38, 139, 210, 0.06); } /* Blue tint */
+
+        /* Loader */
+        .loader-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(253, 246, 227, 0.85); /* Light overlay */
+             display: flex; justify-content: center; align-items: center; z-index: 9999;
+             opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+        .loader-overlay.show { opacity: 1; visibility: visible; }
+        .loader {
+             border: 5px solid var(--base2); border-top: 5px solid var(--accent-primary); border-radius: 50%;
+             width: 60px; height: 60px; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Remove pulseBorder */
+
+        /* Row Animation */
+        @keyframes rowAppear { from { opacity: 0; transform: scaleY(0.8); } to { opacity: 1; transform: scaleY(1); } }
+        tbody tr.new-row { transform-origin: center; animation: rowAppear 0.4s ease-out backwards; }
+
+        footer {
+            text-align: center; margin-top: 40px; padding: 15px; font-size: 0.9em;
+            color: var(--text-color-light); border-top: 1px solid var(--border-color);
+        }
+        footer span { color: var(--accent-primary); font-weight: bold; }
+
+    </style>
+</head>
+<body>
+    <div class="loader-overlay" id="loader-overlay">
+        <div class="loader"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>Database Normalization Sequence</h1>
+             <p>Automated analysis and transformation of data structures, progressing through normal forms.</p>
+        </header>
+
+         <div id="status-display">Status: <span id="status-text" class="info">Initializing...</span></div>
+
+        <div id="steps-container">
+            <!-- Step 0: Initial Unnormalized Table -->
+            <section id="initial" class="step" data-step-num="UNF">
+                <h2>Unnormalized Form (UNF)</h2>
+                <p class="explanation">
+                    <strong>Initial State:</strong> The raw data contains repeating groups (comma-separated lists like equipment, expertise, languages) and potential for redundancy and anomalies. This is the starting point before applying normalization rules.
+                </p>
+                <div class="step-io-container">
+                    <div class="step-io-section output-tables">
+                         <h3>Initial Unnormalized Structure</h3>
+                         <div id="initial-output-table" class="table-container"></div>
+                     </div>
+                 </div>
+            </section>
+
+            <!-- Step 1: First Normal Form (1NF) -->
+            <section id="nf1" class="step" data-step-num="1NF">
+                <h2>First Normal Form (1NF)</h2>
+                <p class="explanation">
+                    <strong>Action:</strong> Eliminate repeating groups. Columns with comma-separated values (<code>CourseEquipments</code>, <code>InstructorExpertise</code>, <code>InstructorLanguages</code>) are decomposed into separate tables linked by the appropriate key (<code>CourseCode</code> or <code>InstructorID</code>). Each cell now holds a single, atomic value.
+                    <strong>Result:</strong> Atomicity achieved. New tables created for the repeating groups.
+                </p>
+                 <div class="step-io-container">
+                     <div class="step-io-section input-tables">
+                         <h3>Input: UNF Structure</h3>
+                         <div id="nf1-input-table" class="table-container"></div>
+                     </div>
+                     <div class="step-io-section output-tables">
+                          <h3>Output: 1NF Tables</h3>
+                          <div id="nf1-output-tables" class="table-container"></div>
+                     </div>
+                 </div>
+            </section>
+
+            <!-- Step 2: Second Normal Form (2NF) -->
+            <section id="nf2" class="step" data-step-num="2NF">
+                 <h2>Second Normal Form (2NF)</h2>
+                 <p class="explanation">
+                    <strong>Action:</strong> Remove partial dependencies from tables with composite keys. The main `Enrollments` table (derived from 1NF, likely PK: {<code>StudentID</code>, <code>CourseCode</code>, <code>Semester</code>}) is examined. Attributes depending only on <code>StudentID</code> (like <code>StudentName</code>, <code>Major</code>, <code>AdvisorID</code>) or only on <code>CourseCode</code> (like <code>CourseName</code>, <code>DeptID</code>) are moved to new `Students` and `Courses` tables, respectively.
+                    <strong>Result:</strong> Reduces redundancy by ensuring non-key attributes depend on the *entire* candidate key.
+                </p>
+                 <div class="step-io-container">
+                     <div class="step-io-section input-tables">
+                         <h3>Input: 1NF Tables</h3>
+                         <div id="nf2-input-tables" class="table-container"></div>
+                     </div>
+                     <div class="step-io-section output-tables">
+                          <h3>Output: 2NF Tables</h3>
+                          <div id="nf2-output-tables" class="table-container"></div>
+                     </div>
+                 </div>
+            </section>
+
+            <!-- Step 3: Third Normal Form (3NF) -->
+            <section id="nf3" class="step" data-step-num="3NF">
+                <h2>Third Normal Form (3NF)</h2>
+                 <p class="explanation">
+                    <strong>Action:</strong> Remove transitive dependencies from 2NF tables.
+                    <ul>
+                        <li>In `Students`: <code>StudentID -> AdvisorID</code> and <code>AdvisorID -> AdvisorName</code>. `Advisors` table created.</li>
+                        <li>In `Courses`: <code>CourseCode -> DeptID</code> and <code>DeptID -> DeptName</code>. `Departments` table created.</li>
+                        <li>In `Courses`: <code>CourseCode -> InstructorID</code>. If `InstructorID` determines other non-key attributes (like `InstructorName`, `InstructorOffice`) within `Courses`, these move to an `Instructors` table.</li>
+                    </ul>
+                    <strong>Result:</strong> Further reduces redundancy and anomalies by ensuring non-key attributes depend *only* on the candidate key(s).
+                </p>
+                <div class="step-io-container">
+                     <div class="step-io-section input-tables">
+                         <h3>Input: 2NF Tables</h3>
+                         <div id="nf3-input-tables" class="table-container"></div>
+                     </div>
+                     <div class="step-io-section output-tables">
+                          <h3>Output: 3NF Tables</h3>
+                          <div id="nf3-output-tables" class="table-container"></div>
+                     </div>
+                 </div>
+            </section>
+
+             <!-- Step 4: Boyce-Codd Normal Form (BCNF) -->
+            <section id="nfBC" class="step" data-step-num="BCNF">
+                 <h2>Boyce-Codd Normal Form (BCNF)</h2>
+                 <p class="explanation">
+                    <strong>Action:</strong> Ensure every determinant is a superkey. We examine the 3NF structure. Let's assume a `Course_Assignments` table (`CourseCode`, `InstructorID`, `Semester`) emerged with PK `{CourseCode, Semester}`. If the FD `InstructorID -> CourseCode` holds (an instructor *only* teaches one course - simplified for demo), this violates BCNF because `InstructorID` determines `CourseCode` (part of a candidate key) but `InstructorID` itself is not a superkey of `Course_Assignments`.
+                    <strong>Resolution:</strong> Decompose `Course_Assignments` into `Instructor_Course(InstructorID, CourseCode)` (PK: `InstructorID`) and `Course_Schedule(CourseCode, Semester)` (PK: `{CourseCode, Semester}`).
+                    <strong>Result:</strong> Addresses anomalies related to overlapping keys or non-key determinants influencing parts of keys.
+                </p>
+                 <div class="step-io-container">
+                     <div class="step-io-section input-tables">
+                         <h3>Input: 3NF Tables</h3>
+                         <div id="nfBC-input-tables" class="table-container"></div>
+                     </div>
+                     <div class="step-io-section output-tables">
+                          <h3>Output: BCNF Tables</h3>
+                          <div id="nfBC-output-tables" class="table-container"></div>
+                     </div>
+                 </div>
+            </section>
+
+            <!-- Step 5: Fourth Normal Form (4NF) -->
+             <section id="nf4" class="step" data-step-num="4NF">
+                <h2>Fourth Normal Form (4NF)</h2>
+                <p class="explanation">
+                    <strong>Action:</strong> Isolate independent multi-valued dependencies (MVDs). The `Instructors` table from 3NF/BCNF contained `InstructorID`, `InstructorName`, `Office`, and potentially lists of `ExpertiseArea` and `ProgrammingLanguage`. The MVDs `InstructorID ->> ExpertiseArea` and `InstructorID ->> ProgrammingLanguage` (meaning expertise and languages are independent lists associated with an instructor) violate 4NF if kept in the same table.
+                    <strong>Resolution:</strong> Decompose `Instructors` into `Instructors_Base(InstructorID, Name, Office)`, `Instructor_Expertise(InstructorID, ExpertiseArea)`, and `Instructor_Languages(InstructorID, ProgrammingLanguage)`.
+                    <strong>Result:</strong> Prevents redundant rows pairing every expertise with every language for an instructor.
+                </p>
+                  <div class="step-io-container">
+                     <div class="step-io-section input-tables">
+                         <h3>Input: BCNF Tables</h3>
+                         <div id="nf4-input-tables" class="table-container"></div>
+                     </div>
+                     <div class="step-io-section output-tables">
+                          <h3>Output: 4NF Tables</h3>
+                          <div id="nf4-output-tables" class="table-container"></div>
+                     </div>
+                 </div>
+            </section>
+
+            <!-- Step 6: Fifth Normal Form (5NF) -->
+             <section id="nf5" class="step" data-step-num="5NF">
+                 <h2>Fifth Normal Form (5NF/PJNF)</h2>
+                 <p class="explanation">
+                    <strong>Action:</strong> Eliminate join dependencies not implied by candidate keys. This is rare and usually addressed by 4NF in practice unless complex cyclical dependencies exist.
+                    <strong>Result:</strong> For this demonstration, the 4NF structure is assumed to meet 5NF requirements. The tables below represent the final, optimized schema based on the applied normalization rules.
+                </p>
+                  <div class="step-io-container">
+                     <div class="step-io-section input-tables">
+                         <h3>Input: 4NF Tables</h3>
+                         <div id="nf5-input-tables" class="table-container"></div>
+                     </div>
+                     <div class="step-io-section output-tables">
+                          <h3>Output: Final Optimized Structure (5NF Assumed)</h3>
+                          <div id="nf5-output-tables" class="table-container"></div>
+                     </div>
+                 </div>
+            </section>
+
+        </div> <!-- /steps-container -->
+
+         <footer>
+            Automated Normalization Sequence | Status: <span id="footer-status">Idle</span> | Final Integrity: <span id="footer-integrity">Pending</span>
+        </footer>
+    </div>
+
+    <script>
+    // ---=== JavaScript: Automated Normalization Engine v2.2 (Solarized) ===---
+
+    // --- Data Generation & Dependencies ---
+    const initialUnnormalizedData = [];
+    function generateSampleData(numRecords) {
+        const data = [];
+        // Expanded data pools for variety
+        const students = [
+            { id: 'S1001', name: 'Alice', major: 'CS', advisor: 'A01' }, { id: 'S1002', name: 'Bob', major: 'EE', advisor: 'A02' },
+            { id: 'S1003', name: 'Charlie', major: 'CS', advisor: 'A01' }, { id: 'S1004', name: 'David', major: 'BIO', advisor: 'A03' },
+            { id: 'S1005', name: 'Eve', major: 'EE', advisor: 'A02' }, { id: 'S1006', name: 'Frank', major: 'CS', advisor: 'A01' },
+            { id: 'S1007', name: 'Grace', major: 'BIO', advisor: 'A03' }, { id: 'S1008', name: 'Heidi', major: 'CS', advisor: 'A01'},
+            { id: 'S1009', name: 'Ivan', major: 'EE', advisor: 'A02' }, { id: 'S1010', name: 'Judy', major: 'BIO', advisor: 'A03'},
+        ];
+        const advisors = [ { id: 'A01', name: 'Dr. Elara Vance' }, { id: 'A02', name: 'Prof. Ben Carter' }, { id: 'A03', name: 'Dr. Samira Khan' } ];
+        const courses = [
+            { code: 'CS101', name: 'Intro Computing', dept: 'D10', equip: 'PC,Projector' },
+            { code: 'EE201', name: 'Circuit Theory', dept: 'D20', equip: 'Oscilloscope,Multimeter,PC' },
+            { code: 'CS305', name: 'Databases', dept: 'D10', equip: 'PC,ServerAccess' },
+            { code: 'BIO101', name: 'General Biology', dept: 'D30', equip: 'Microscope,PC' },
+            { code: 'EE350', name: 'Signals & Systems', dept: 'D20', equip: 'SpectrumAnalyzer,PC' },
+            { code: 'CS450', name: 'AI Concepts', dept: 'D10', equip: 'GPU Server,PC'},
+            { code: 'BIO210', name: 'Genetics Lab', dept: 'D30', equip: 'Sequencer,PC,Microscope'},
+            { code: 'CS210', name: 'Data Structures', dept: 'D10', equip: 'PC,Whiteboard'},
+        ];
+         // Crucial: Define which instructor teaches which course for BCNF demo
+         // Let's assign ONE instructor per course code definitively
+         const courseInstructorMap = {
+             'CS101': 'I01', 'EE201': 'I02', 'CS305': 'I01', 'BIO101': 'I03',
+             'EE350': 'I02', 'CS450': 'I01', 'BIO210': 'I03', 'CS210': 'I01'
+         };
+        const instructors = [
+            // Added Expertise & Languages as comma-sep lists for UNF -> 1NF -> 4NF demo
+            { id: 'I01', name: 'Dr. Alan Turing', office: 'B101', expertise: 'Theory,Algorithms', languages: 'Python,C++' },
+            { id: 'I02', name: 'Prof. Georg Ohm', office: 'E205', expertise: 'Circuits,EM Fields', languages: 'Spice,MATLAB' },
+            { id: 'I03', name: 'Dr. Gregor Mendel', office: 'G310', expertise: 'Genetics,Stats', languages: 'R,Python' }
+        ];
+        const departments = [ { id: 'D10', name: 'Computer Science' }, { id: 'D20', name: 'Electrical Engineering' }, { id: 'D30', name: 'Biology' } ];
+        const semesters = ['Fall2023', 'Spring2024', 'Fall2024', 'Spring2025'];
+        const grades = ['A', 'B', 'C', 'A-', 'B+', 'A', 'B', 'B-'];
+
+        let recordIdCounter = 1;
+
+        // Create enrollments ensuring variety
+        for(let s_idx = 0; s_idx < students.length; s_idx++) {
+             for(let c_idx = 0; c_idx < courses.length; c_idx++) {
+                 // Let students take ~half the courses randomly over different semesters
+                  if (Math.random() > 0.5) {
+                      const student = students[s_idx];
+                      const course = courses[c_idx];
+                      const instructorId = courseInstructorMap[course.code];
+                      const instructor = instructors.find(inst => inst.id === instructorId);
+                      const advisor = advisors.find(adv => adv.id === student.advisor);
+                      const department = departments.find(dep => dep.id === course.dept);
+                      const semester = semesters[(s_idx + c_idx) % semesters.length]; // Vary semester
+
+                      data.push({
+                        'RecordID': `R${String(recordIdCounter++).padStart(4, '0')}`, // Unique enrollment ID
+                        'StudentID': student.id, 'StudentName': student.name, 'StudentMajor': student.major,
+                        'AdvisorID': student.advisor, 'AdvisorName': advisor.name,
+                        'CourseCode': course.code, 'CourseName': course.name, 'CourseEquipments': course.equip, // Repeating Group
+                        'DeptID': course.dept, 'DeptName': department.name,
+                        'InstructorID': instructorId, 'InstructorName': instructor.name, 'InstructorOffice': instructor.office,
+                        'InstructorExpertise': instructor.expertise, // Repeating Group
+                        'InstructorLanguages': instructor.languages, // Repeating Group
+                        'Semester': semester,
+                        'Grade': grades[(s_idx * courses.length + c_idx) % grades.length] // Vary grade
+                    });
+                  }
+                   if (recordIdCounter > numRecords + 1) break; // Stop if we hit the target count
+             }
+              if (recordIdCounter > numRecords + 1) break;
+        }
+        // If not enough records generated by combinations, add more simple ones (less likely needed now)
+         while (data.length < numRecords) {
+             const i = data.length; // Use current length for indices
+             const student = students[i % students.length];
+             const course = courses[i % courses.length];
+             const instructorId = courseInstructorMap[course.code];
+             const instructor = instructors.find(inst => inst.id === instructorId);
+             const advisor = advisors.find(adv => adv.id === student.advisor);
+             const department = departments.find(dep => dep.id === course.dept);
+             const semester = semesters[i % semesters.length];
+
+             data.push({ /* ... structure as above ... */
+                'RecordID': `R${String(recordIdCounter++).padStart(4, '0')}`,
+                'StudentID': student.id, 'StudentName': student.name, 'StudentMajor': student.major,
+                'AdvisorID': student.advisor, 'AdvisorName': advisor.name,
+                'CourseCode': course.code, 'CourseName': course.name, 'CourseEquipments': course.equip,
+                'DeptID': course.dept, 'DeptName': department.name,
+                'InstructorID': instructorId, 'InstructorName': instructor.name, 'InstructorOffice': instructor.office,
+                'InstructorExpertise': instructor.expertise, 'InstructorLanguages': instructor.languages,
+                'Semester': semester, 'Grade': grades[i % grades.length]
+             });
+         }
+
+
+        return data.slice(0, numRecords); // Ensure exact number
+    }
+    initialUnnormalizedData.push(...generateSampleData(60)); // Generate 60 records
+
+    // --- Assumed FDs & MVDs for THIS specific generated data ---
+    // FDs:
+    // RecordID -> determines the entire UNF row initially.
+    // {StudentID, CourseCode, Semester} -> Grade, RecordID (Candidate Key for Enrollment)
+    // StudentID -> StudentName, StudentMajor, AdvisorID
+    // AdvisorID -> AdvisorName
+    // CourseCode -> CourseName, DeptID, CourseEquipments (conceptual before 1NF)
+    // DeptID -> DeptName
+    // InstructorID -> InstructorName, InstructorOffice, InstructorExpertise, InstructorLanguages (conceptual before 1NF/4NF)
+    // **BCNF Violation Source:** InstructorID -> CourseCode (Enforced by generation logic - needed for demo)
+    // MVDs:
+    // InstructorID ->> InstructorExpertise | InstructorLanguages (Independent lists)
+
+    // --- State Management ---
+    let currentStepIndex = -1;
+    const steps = ['initial', 'nf1', 'nf2', 'nf3', 'nfBC', 'nf4', 'nf5'];
+    let normalizationData = {}; // Stores results: { initial: [], nf1: {base:[], eq:[],...}, nf2: {...}, ... }
+
+    // --- Helper Functions (Keep createTable, wait, toggleLoader, updateStatus, updateStepUI, displayTableData) ---
+    const getElement = (id) => document.getElementById(id);
+    const createTable = (data, caption, pk = [], fk = []) => { /* ... Same as previous ... */
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-wrapper';
+
+        if (!data || (Array.isArray(data) && data.length === 0) || typeof data !== 'object') {
+            const emptyMsg = document.createElement('p');
+            emptyMsg.textContent = `No data available for: ${caption}`;
+             emptyMsg.style.padding = '15px'; emptyMsg.style.fontStyle = 'italic'; emptyMsg.style.color = 'var(--text-color-light)';
+            wrapper.appendChild(emptyMsg);
+            return wrapper;
+        }
+
+        const tablesToRender = Array.isArray(data) ? { [caption]: data } : data;
+        const mainCaption = Array.isArray(data) ? caption : null;
+
+         for (const [tableCaption, tableData] of Object.entries(tablesToRender)) {
+             // Defensive check for empty or non-array tableData
+             if (!Array.isArray(tableData) || tableData.length === 0) continue;
+
+            const table = document.createElement('table');
+             const cap = table.createCaption();
+             cap.textContent = mainCaption ? mainCaption : tableCaption.replace(/_/g, ' '); // Replace underscores
+
+            const thead = table.createTHead();
+            const headerRow = thead.insertRow();
+             const headers = Object.keys(tableData[0]); // Get headers from first row
+            headers.forEach(headerText => {
+                const th = document.createElement('th');
+                th.textContent = headerText;
+                // Get PK/FK specific to this sub-table if main pk/fk is an object
+                const currentPK = Array.isArray(pk) ? pk : (pk[tableCaption] || []);
+                const currentFK = Array.isArray(fk) ? fk : (fk[tableCaption] || []);
+                if (currentPK.includes(headerText)) { th.classList.add('pk'); th.title = 'Primary Key'; }
+                if (currentFK.includes(headerText)) { th.classList.add('fk'); th.title = 'Foreign Key'; }
+                headerRow.appendChild(th);
+            });
+
+            const tbody = table.createTBody();
+            tableData.forEach((rowObj, index) => {
+                const row = tbody.insertRow();
+                row.classList.add('new-row');
+                row.style.animationDelay = `${index * 0.01}s`; // Very fast stagger
+
+                headers.forEach(header => {
+                    const cell = row.insertCell();
+                    // Handle potential null/undefined values gracefully
+                    cell.textContent = rowObj[header] !== null && rowObj[header] !== undefined ? rowObj[header] : '';
+                     const currentPK = Array.isArray(pk) ? pk : (pk[tableCaption] || []);
+                     const currentFK = Array.isArray(fk) ? fk : (fk[tableCaption] || []);
+                     if (currentPK.includes(header)) cell.classList.add('pk');
+                     if (currentFK.includes(header)) cell.classList.add('fk');
+                });
+            });
+             wrapper.appendChild(table);
+              // Add spacer only if rendering multiple tables and it's not the last one
+              const tableKeys = Object.keys(tablesToRender).filter(k => Array.isArray(tablesToRender[k]) && tablesToRender[k].length > 0);
+              if (tableKeys.length > 1 && tableKeys.indexOf(tableCaption) < tableKeys.length - 1) {
+                 const spacer = document.createElement('div');
+                 spacer.style.height = '20px'; // Small spacer
+                 wrapper.appendChild(spacer);
+             }
+        }
+        return wrapper;
+    };
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const toggleLoader = (show) => getElement('loader-overlay').classList.toggle('show', show);
+    function updateStatus(message, type = 'info') { /* ... Same as previous ... */
+         const statusText = getElement('status-text');
+        const footerStatus = getElement('footer-status');
+        if (statusText) statusText.textContent = message;
+        if (footerStatus) footerStatus.textContent = message;
+        if (statusText) statusText.className = type;
+
+        const footerIntegrity = getElement('footer-integrity');
+        if(footerIntegrity){
+            if (type === 'success' || message.includes("Sequence Complete")) {
+                footerIntegrity.textContent = 'Optimized';
+                footerIntegrity.style.color = 'var(--success-color)';
+            } else if (type === 'error') {
+                footerIntegrity.textContent = 'Compromised';
+                footerIntegrity.style.color = 'var(--error-color)';
+            }
+            else {
+                footerIntegrity.textContent = 'Processing';
+                footerIntegrity.style.color = 'var(--warning-color)'; // Use warning color during processing
+            }
+        }
+     }
+    function updateStepUI(activeIndex) { /* ... Same as previous ... */
+         document.querySelectorAll('.step').forEach((el, idx) => {
+            el.classList.remove('active', 'completed', 'pending');
+            if (idx < activeIndex) {
+                el.classList.add('completed');
+            } else if (idx === activeIndex) {
+                el.classList.add('active');
+                 setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' }), 150); // Smoother scroll
+            } else {
+                el.classList.add('pending');
+            }
+        });
+     }
+    function displayTableData(stepId, ioType, data, caption, pk = [], fk = []) { /* ... Same as previous ... */
+         const containerId = `${stepId}-${ioType}-${ (Array.isArray(data) || Object.keys(data || {}).length <= 1) ? 'table' : 'tables'}`;
+         const container = getElement(containerId);
+        if (container) {
+            container.innerHTML = '';
+            container.appendChild(createTable(data, caption, pk, fk));
+        } else {
+             console.error(`Container element not found: ${containerId}`);
+        }
+     }
+     // Utility to deduplicate array of objects based on specified keys
+     function deduplicate(array, keys) {
+        const seen = new Set();
+        return array.filter(item => {
+            const key = keys.map(k => item[k]).join('|');
+            if (seen.has(key)) {
+                return false;
+            }
+            seen.add(key);
+            return true;
+        });
+     }
+
+
+    // --- Normalization Logic (REVISED for Guaranteed Changes) ---
+
+    function normalizeTo1NF(unfData) {
+        const baseTable = [];
+        const courseEquip = [];
+        const instructorExpertise = [];
+        const instructorLang = [];
+
+        unfData.forEach(row => {
+            // Create base row without repeating groups
+            const baseRow = { ...row };
+            delete baseRow.CourseEquipments;
+            delete baseRow.InstructorExpertise;
+            delete baseRow.InstructorLanguages;
+            baseTable.push(baseRow);
+
+            // Create rows for CourseEquipments
+            row.CourseEquipments?.split(',').forEach(equip => {
+                if (equip) courseEquip.push({ CourseCode: row.CourseCode, Equipment: equip.trim() });
+            });
+            // Create rows for InstructorExpertise
+             row.InstructorExpertise?.split(',').forEach(exp => {
+                 if (exp) instructorExpertise.push({ InstructorID: row.InstructorID, ExpertiseArea: exp.trim() });
+             });
+             // Create rows for InstructorLanguages
+              row.InstructorLanguages?.split(',').forEach(lang => {
+                 if (lang) instructorLang.push({ InstructorID: row.InstructorID, ProgrammingLanguage: lang.trim() });
+             });
+        });
+
+        // Deduplicate the new tables
+        const uniqueBase = deduplicate(baseTable, ['RecordID']); // Base is unique by RecordID
+        const uniqueEquip = deduplicate(courseEquip, ['CourseCode', 'Equipment']);
+        const uniqueExpertise = deduplicate(instructorExpertise, ['InstructorID', 'ExpertiseArea']);
+        const uniqueLang = deduplicate(instructorLang, ['InstructorID', 'ProgrammingLanguage']);
+
+
+        updateStatus("1NF: Repeating groups eliminated", "info");
+        const result = {
+             Base_Records: uniqueBase,
+             Course_Equipment: uniqueEquip,
+             Instructor_Expertise: uniqueExpertise, // Will be handled properly in 4NF
+             Instructor_Languages: uniqueLang        // Will be handled properly in 4NF
+        };
+         normalizationData.nf1 = result;
+         return result;
+    }
+
+     function normalizeTo2NF() {
+        const nf1 = normalizationData.nf1;
+        if (!nf1 || !nf1.Base_Records) return null;
+
+         // PK for Base_Records is RecordID, but conceptually Enrollment is {StudentID, CourseCode, Semester}
+         // Let's identify dependencies based on {StudentID, CourseCode, Semester} as the composite CK for enrollment facts
+        const enrollments = []; // {StudentID, CourseCode, Semester, Grade, RecordID} -> PK {StudentID, CourseCode, Semester}
+        const students = {};    // {StudentID, StudentName, StudentMajor, AdvisorID, AdvisorName} -> PK {StudentID}
+        const courses = {};     // {CourseCode, CourseName, DeptID, DeptName} -> PK {CourseCode}
+         // Instructor details depend on InstructorID, not the enrollment key
+        const instructorsBase = {}; // {InstructorID, InstructorName, InstructorOffice} -> PK {InstructorID}
+
+        nf1.Base_Records.forEach(row => {
+             // Enrollment specific info
+             enrollments.push({
+                 'RecordID': row.RecordID, // Keep original ID if needed
+                 'StudentID': row.StudentID, 'CourseCode': row.CourseCode, 'Semester': row.Semester,
+                 'Grade': row.Grade
+             });
+
+             // Student partial dependency
+             if (!students[row.StudentID]) {
+                 students[row.StudentID] = {
+                     'StudentID': row.StudentID, 'StudentName': row.StudentName,
+                     'StudentMajor': row.StudentMajor, 'AdvisorID': row.AdvisorID,
+                     'AdvisorName': row.AdvisorName // Keep for 3NF
+                 };
+             }
+             // Course partial dependency
+             if (!courses[row.CourseCode]) {
+                  courses[row.CourseCode] = {
+                     'CourseCode': row.CourseCode, 'CourseName': row.CourseName,
+                     'DeptID': row.DeptID, 'DeptName': row.DeptName, // Keep for 3NF
+                     'InstructorID': row.InstructorID // Keep for relationship / 3NF / BCNF
+                 };
+             }
+              // Instructor partial dependency (based on InstructorID present in the base record)
+              if (!instructorsBase[row.InstructorID]) {
+                  instructorsBase[row.InstructorID] = {
+                      'InstructorID': row.InstructorID, 'InstructorName': row.InstructorName,
+                      'InstructorOffice': row.InstructorOffice
+                  };
+              }
+        });
+
+        updateStatus("2NF: Partial dependencies removed", "info");
+        const result = {
+             Enrollments: enrollments, // Should already be unique by PK {StudentID, CourseCode, Semester} implicitly
+             Students: Object.values(students),
+             Courses: Object.values(courses),
+              Instructors_Base: Object.values(instructorsBase), // Separated instructor details
+             // Pass through tables from 1NF that weren't part of Base_Records decomposition
+             Course_Equipment: nf1.Course_Equipment || [],
+             Instructor_Expertise: nf1.Instructor_Expertise || [], // Carry forward for 4NF
+             Instructor_Languages: nf1.Instructor_Languages || []  // Carry forward for 4NF
+        };
+         normalizationData.nf2 = result;
+         return result;
+    }
+
+    function normalizeTo3NF() {
+        const nf2 = normalizationData.nf2;
+        if (!nf2) return null;
+
+        const advisors = {};
+        const departments = {};
+        // Instructors_Base is already likely in 3NF, pass through.
+
+        // Process Students table for Advisor transitive dependency
+        const students3NF = (nf2.Students || []).map(s => {
+            if (s.AdvisorID && !advisors[s.AdvisorID]) {
+                 advisors[s.AdvisorID] = { 'AdvisorID': s.AdvisorID, 'AdvisorName': s.AdvisorName };
+            }
+            return { // Remove AdvisorName
+                'StudentID': s.StudentID, 'StudentName': s.StudentName,
+                'StudentMajor': s.StudentMajor, 'AdvisorID': s.AdvisorID // FK
+             };
+        });
+
+        // Process Courses table for Department transitive dependency
+         // Also, create the base for the BCNF-violating table here
+         const courses3NF = []; // Only Course details
+         const courseAssignments = []; // {CourseCode, InstructorID, Semester} - potential BCNF table
+
+        (nf2.Courses || []).forEach(c => {
+            if (c.DeptID && !departments[c.DeptID]) {
+                 departments[c.DeptID] = { 'DeptID': c.DeptID, 'DeptName': c.DeptName };
+            }
+             courses3NF.push({ // Remove DeptName and InstructorID
+                 'CourseCode': c.CourseCode, 'CourseName': c.CourseName,
+                 'DeptID': c.DeptID // FK
+             });
+             // We need Semester info for the CourseAssignment table. Get it from Enrollments.
+             // Find all semesters this course/instructor pair occurs in
+            (nf2.Enrollments || []).forEach(e => {
+                 if(e.CourseCode === c.CourseCode && e.InstructorID === c.InstructorID) { // InstructorID was in Courses in 2NF
+                     courseAssignments.push({
+                         'CourseCode': c.CourseCode,
+                         'InstructorID': c.InstructorID,
+                         'Semester': e.Semester // Use semester from enrollment
+                     });
+                 }
+             });
+        });
+
+        // Deduplicate CourseAssignments based on {CourseCode, InstructorID, Semester}
+        const uniqueCourseAssignments = deduplicate(courseAssignments, ['CourseCode', 'InstructorID', 'Semester']);
+
+        updateStatus("3NF: Transitive dependencies removed", "info");
+         const result = {
+             Enrollments: nf2.Enrollments || [], // Pass through (maybe remove redundant FKs later?)
+             Students: students3NF,
+             Advisors: Object.values(advisors),
+             Courses: courses3NF,
+             Departments: Object.values(departments),
+             Instructors_Base: nf2.Instructors_Base || [], // Pass through
+             Course_Assignments: uniqueCourseAssignments, // Table potentially violating BCNF
+             // Pass through others
+             Course_Equipment: nf2.Course_Equipment || [],
+             Instructor_Expertise: nf2.Instructor_Expertise || [],
+             Instructor_Languages: nf2.Instructor_Languages || []
+         };
+         normalizationData.nf3 = result;
+         return result;
+    }
+
+
+    function normalizeToBCNF() {
+        // Check 3NF tables for BCNF violations.
+        // Target: Course_Assignments(CourseCode, InstructorID, Semester)
+        // Assumed PK: {CourseCode, Semester} (Assuming a course has one instructor per semester)
+        // Assumed FD violation: InstructorID -> CourseCode
+        const nf3 = normalizationData.nf3;
+        if (!nf3 || !nf3.Course_Assignments) return null;
+
+        // Decompose Course_Assignments based on InstructorID -> CourseCode
+        const instructorCourse = {}; // InstructorID -> CourseCode
+        const courseSchedule = []; // CourseCode, Semester
+
+         (nf3.Course_Assignments || []).forEach(ca => {
+             // Since InstructorID -> CourseCode, store this relationship uniquely
+             if (!instructorCourse[ca.InstructorID]) {
+                 instructorCourse[ca.InstructorID] = {
+                     'InstructorID': ca.InstructorID,
+                     'CourseCode': ca.CourseCode
+                 };
+             }
+             // Store the remaining part of the original key relationship
+             courseSchedule.push({
+                 'CourseCode': ca.CourseCode,
+                 'Semester': ca.Semester
+             });
+         });
+
+        const uniqueCourseSchedule = deduplicate(courseSchedule, ['CourseCode', 'Semester']);
+
+        updateStatus("BCNF: Violation resolved by decomposition", "info");
+        const result = {
+            // Keep tables from 3NF that were not decomposed
+             Enrollments: nf3.Enrollments || [], Students: nf3.Students || [], Advisors: nf3.Advisors || [],
+             Courses: nf3.Courses || [], Departments: nf3.Departments || [], Instructors_Base: nf3.Instructors_Base || [],
+             Course_Equipment: nf3.Course_Equipment || [],
+             // BCNF decomposition results:
+             Instructor_Course: Object.values(instructorCourse), // PK: InstructorID
+             Course_Schedule: uniqueCourseSchedule,          // PK: {CourseCode, Semester}
+             // Carry forward MVD tables for 4NF check
+             Instructor_Expertise: nf3.Instructor_Expertise || [],
+             Instructor_Languages: nf3.Instructor_Languages || []
+        };
+        normalizationData.nfBC = result;
+        // Store PK/FK for display
+         normalizationData.nfBC_pk = { Instructor_Course: ['InstructorID'], Course_Schedule: ['CourseCode', 'Semester'], /* ... other PKs ... */ };
+         normalizationData.nfBC_fk = { Instructor_Course: ['CourseCode'], Course_Schedule: ['CourseCode'], /* ... other FKs ... */ }; // Add FKs as needed
+        return result;
+     }
+
+
+      function normalizeTo4NF() {
+          // Check BCNF tables for MVD violations.
+          // Target: Instructor_Expertise and Instructor_Languages carried from 1NF.
+          // MVD: InstructorID ->> ExpertiseArea | ProgrammingLanguage.
+          // These tables *already* satisfy 4NF because they were created by isolating the MVDs in 1NF.
+          // To show a change *at this step*, we should have kept Expertise/Languages in Instructors_Base until now.
+
+          // ***Let's adjust the logic flow for demonstration***
+          // Assume Expertise/Languages were kept in Instructors_Base through 3NF/BCNF.
+          // (We'll modify the previous steps' return values conceptually for this)
+
+          const nfBC = normalizationData.nfBC; // Use the actual BCNF result structure
+          if (!nfBC) return null;
+
+          // Assume nfBC.Instructors_Base *still contained* Expertise/Languages for demo:
+          // Let's simulate this by grabbing the data from the separate tables passed through
+          const instructorsWithMVD = {};
+          (nfBC.Instructors_Base || []).forEach(ib => {
+              instructorsWithMVD[ib.InstructorID] = {...ib, Expertise: new Set(), Languages: new Set()};
+          });
+           (nfBC.Instructor_Expertise || []).forEach(ie => {
+               if(instructorsWithMVD[ie.InstructorID]) instructorsWithMVD[ie.InstructorID].Expertise.add(ie.ExpertiseArea);
+           });
+           (nfBC.Instructor_Languages || []).forEach(il => {
+                if(instructorsWithMVD[il.InstructorID]) instructorsWithMVD[il.InstructorID].Languages.add(il.ProgrammingLanguage);
+           });
+
+          // Now, decompose this simulated structure
+          const instructors4NF = []; // Base instructor info without MVDs
+          const instructorExpertise4NF = [];
+          const instructorLanguages4NF = [];
+
+          Object.values(instructorsWithMVD).forEach(inst => {
+               instructors4NF.push({ // Base info
+                   'InstructorID': inst.InstructorID,
+                   'InstructorName': inst.InstructorName,
+                   'InstructorOffice': inst.InstructorOffice
+               });
+               // Create separate rows for expertise
+               inst.Expertise.forEach(exp => {
+                   instructorExpertise4NF.push({'InstructorID': inst.InstructorID, 'ExpertiseArea': exp});
+               });
+                // Create separate rows for languages
+               inst.Languages.forEach(lang => {
+                   instructorLanguages4NF.push({'InstructorID': inst.InstructorID, 'ProgrammingLanguage': lang});
+               });
+          });
+
+
+         updateStatus("4NF: Multi-valued dependencies isolated", "info");
+          const result = {
+             // Keep other tables from BCNF
+             Enrollments: nfBC.Enrollments || [], Students: nfBC.Students || [], Advisors: nfBC.Advisors || [],
+             Courses: nfBC.Courses || [], Departments: nfBC.Departments || [],
+             Course_Equipment: nfBC.Course_Equipment || [],
+             Instructor_Course: nfBC.Instructor_Course || [], Course_Schedule: nfBC.Course_Schedule || [],
+              // New 4NF tables for Instructors
+             Instructors: instructors4NF, // Renamed from Instructors_Base
+             Instructor_Expertise: instructorExpertise4NF, // PK {InstructorID, ExpertiseArea}
+             Instructor_Languages: instructorLanguages4NF  // PK {InstructorID, ProgrammingLanguage}
+         };
+          normalizationData.nf4 = result;
+          // Store PK/FKs for display
+           normalizationData.nf4_pk = { Instructors: ['InstructorID'], Instructor_Expertise: ['InstructorID', 'ExpertiseArea'], Instructor_Languages: ['InstructorID', 'ProgrammingLanguage'], /* ... other PKs ... */ };
+           normalizationData.nf4_fk = { Instructor_Expertise: ['InstructorID'], Instructor_Languages: ['InstructorID'], /* ... other FKs ... */ };
+          return result;
+      }
+
+    function normalizeTo5NF() {
+        // Assume 4NF structure satisfies 5NF.
+        updateStatus("5NF: No further Join Dependencies identified", "info");
+        normalizationData.nf5 = normalizationData.nf4; // Pass 4NF data
+        // Use PK/FK definitions from 4NF for display
+         normalizationData.nf5_pk = normalizationData.nf4_pk;
+         normalizationData.nf5_fk = normalizationData.nf4_fk;
+        return normalizationData.nf5;
+    }
+
+
+    // --- Automated Process Flow (REVISED for Input/Output) ---
+    async function runNormalizationSequence() {
+        toggleLoader(true);
+        let previousStepData = null; // Holds the result of the previous step for input display
+        let previousPK = {}, previousFK = {}; // Keys for the previous step's output
+
+        for (let i = 0; i < steps.length; i++) {
+            currentStepIndex = i;
+            const stepId = steps[i];
+            updateStepUI(i);
+            updateStatus(`Processing ${stepId.toUpperCase()}...`, 'info');
+            await wait(500); // Pause before processing
+
+            const currentStepElement = getElement(stepId);
+            if (!currentStepElement) {
+                 console.error(`Step element ${stepId} not found!`);
+                 continue;
+            }
+
+            // --- Display Input ---
+            const inputCaption = i > 0 ? `${steps[i-1].toUpperCase()} Structure` : "N/A";
+            if (i > 0 && previousStepData) {
+                 displayTableData(stepId, 'input', previousStepData, inputCaption, previousPK, previousFK);
+                await wait(1500); // Pause to view input
+            } else if (i === 0) {
+                 // Special handling for initial UNF step (only output)
+                 normalizationData.initial = initialUnnormalizedData;
+                 previousStepData = normalizationData.initial; // Set for next step's input
+                 const unfCaption = "Initial Unnormalized Data (UNF)";
+                 previousPK = { [unfCaption]: ['RecordID'] }; // Example PK for display
+                 previousFK = {};
+                 displayTableData(stepId, 'output', previousStepData, unfCaption, previousPK, previousFK);
+                 await wait(2000);
+                 currentStepElement.classList.add('completed');
+                 currentStepElement.classList.remove('active');
+                 continue; // Proceed to 1NF processing loop
+            }
+
+            // --- Run Normalization Logic ---
+            let outputData = null;
+            let outputCaption = "";
+            let outputPK = {};
+            let outputFK = {};
+
+            try {
+                 // Call the appropriate normalization function
+                 switch (stepId) {
+                    case 'nf1': outputData = normalizeTo1NF(normalizationData.initial); break;
+                    case 'nf2': outputData = normalizeTo2NF(); break; // Uses nf1 stored data
+                    case 'nf3': outputData = normalizeTo3NF(); break; // Uses nf2 stored data
+                    case 'nfBC': outputData = normalizeToBCNF(); break; // Uses nf3 stored data
+                    case 'nf4': outputData = normalizeTo4NF(); break; // Uses nfBC stored data
+                    case 'nf5': outputData = normalizeTo5NF(); break; // Uses nf4 stored data
+                }
+
+                // Get captions and keys (these should be set within the norm functions or here)
+                 // Example: Fetch PK/FK stored in normalizationData object by the functions
+                 outputCaption = `${stepId.toUpperCase()} Structure`;
+                 outputPK = normalizationData[`${stepId}_pk`] || {}; // Fetch stored keys if available
+                 outputFK = normalizationData[`${stepId}_fk`] || {}; // Fetch stored keys if available
+                 // If keys weren't stored, define defaults based on step (less ideal)
+                 // if (Object.keys(outputPK).length === 0) { /* Define default keys based on stepId */ }
+
+
+                if (outputData) {
+                    // --- Display Output ---
+                    displayTableData(stepId, 'output', outputData, outputCaption, outputPK, outputFK);
+                    previousStepData = outputData; // Store for next step's input
+                    previousPK = outputPK;        // Store keys too
+                    previousFK = outputFK;
+                    await wait(2500); // Pause to view output
+                     currentStepElement.classList.add('completed');
+                     currentStepElement.classList.remove('active');
+                } else if (stepId !== 'initial') {
+                    throw new Error(`Normalization function for ${stepId} returned null or invalid data.`);
+                }
+
+            } catch (error) {
+                console.error("Normalization Error:", error);
+                updateStatus(`Error during ${stepId.toUpperCase()}: ${error.message}`, "error");
+                toggleLoader(false);
+                return;
+            }
+        }
+
+        // Sequence Finished
+        updateStatus("Normalization Sequence Complete", "success");
+         updateStepUI(steps.length);
+        toggleLoader(false);
+    }
+
+
+    // --- Initial Load ---
+    document.addEventListener('DOMContentLoaded', () => {
+        updateStatus("Initializing Sequence...", "info");
+        runNormalizationSequence();
+    });
+
+    </script>
+</body>
+</html>
