@@ -1,89 +1,135 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { FiUpload, FiImage, FiSend, FiX } from 'react-icons/fi';
 import './StoryCreator.css';
 
 const StoryCreator = ({ onStoryCreated, currentStory, onStoryUpdated }) => {
+  const [files, setFiles] = useState([]);
+  const [previewUrls, setPreviewUrls] = useState([]);
   const [loading, setLoading] = useState(false);
   const [prompt, setPrompt] = useState('');
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [previewUrls, setPreviewUrls] = useState([]);
+  const [dragActive, setDragActive] = useState(false);
+
+  useEffect(() => {
+    // Cleanup preview URLs when component unmounts
+    return () => {
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [previewUrls]);
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleFiles = (fileList) => {
+    const validFiles = Array.from(fileList).filter(file => 
+      file.type.startsWith('image/')
+    );
+
+    if (validFiles.length === 0) {
+      toast.error('Please select valid image files');
+      return;
+    }
+
+    setFiles(validFiles);
+    
+    // Create preview URLs
+    const urls = validFiles.map(file => URL.createObjectURL(file));
+    setPreviewUrls(prev => {
+      // Revoke old URLs
+      prev.forEach(url => URL.revokeObjectURL(url));
+      return urls;
+    });
+  };
 
   const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    setSelectedFiles(files);
+    if (e.target.files && e.target.files.length > 0) {
+      handleFiles(e.target.files);
+    }
+  };
 
-    // Create preview URLs
-    const urls = files.map(file => URL.createObjectURL(file));
-    setPreviewUrls(urls);
+  const handleRemoveImage = (index) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviewUrls(prev => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (selectedFiles.length === 0) {
+
+    if (files.length === 0 && !currentStory) {
       toast.error('Please select at least one image');
       return;
     }
 
-    setLoading(true);
-    const formData = new FormData();
-    selectedFiles.forEach(file => {
-      formData.append('images', file);
-    });
-    formData.append('prompt', prompt);
-
     try {
-      const response = await fetch('http://localhost:5000/api/generate-story', {
+      setLoading(true);
+      const formData = new FormData();
+      
+      if (files.length > 0) {
+        files.forEach(file => {
+          formData.append('images', file);
+        });
+      }
+
+      if (prompt) {
+        formData.append('prompt', prompt);
+      }
+
+      if (currentStory) {
+        formData.append('storyId', currentStory.id);
+      }
+
+      const endpoint = currentStory 
+        ? `http://localhost:5000/api/stories/${currentStory.id}/continue`
+        : 'http://localhost:5000/api/generate';
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate story');
+        throw new Error('Failed to create story');
       }
 
       const data = await response.json();
-      onStoryCreated(data);
-      toast.success('Story created successfully!');
       
-      // Clear form
+      if (currentStory) {
+        onStoryUpdated(data);
+      } else {
+        onStoryCreated(data);
+      }
+
+      // Reset form
+      setFiles([]);
+      setPreviewUrls(prev => {
+        prev.forEach(url => URL.revokeObjectURL(url));
+        return [];
+      });
       setPrompt('');
-      setSelectedFiles([]);
-      setPreviewUrls([]);
+      toast.success(currentStory ? 'Story continued successfully!' : 'Story created successfully!');
     } catch (error) {
       console.error('Error creating story:', error);
-      toast.error('Failed to create story. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleContinue = async () => {
-    if (!currentStory) return;
-
-    setLoading(true);
-    try {
-      const response = await fetch('http://localhost:5000/api/continue-story', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          storyId: currentStory.id,
-          prompt: prompt || 'Continue the story',
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to continue story');
-      }
-
-      const data = await response.json();
-      onStoryUpdated(data);
-      toast.success('Story continued successfully!');
-      setPrompt('');
-    } catch (error) {
-      console.error('Error continuing story:', error);
-      toast.error('Failed to continue story. Please try again.');
+      toast.error('Failed to create story');
     } finally {
       setLoading(false);
     }
@@ -92,17 +138,10 @@ const StoryCreator = ({ onStoryCreated, currentStory, onStoryUpdated }) => {
   const handleEndStory = async () => {
     if (!currentStory) return;
 
-    setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/end-story', {
+      setLoading(true);
+      const response = await fetch(`http://localhost:5000/api/stories/${currentStory.id}/end`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          storyId: currentStory.id,
-          prompt: prompt || 'Write a satisfying conclusion',
-        }),
       });
 
       if (!response.ok) {
@@ -112,107 +151,116 @@ const StoryCreator = ({ onStoryCreated, currentStory, onStoryUpdated }) => {
       const data = await response.json();
       onStoryUpdated(data);
       toast.success('Story ended successfully!');
-      setPrompt('');
     } catch (error) {
       console.error('Error ending story:', error);
-      toast.error('Failed to end story. Please try again.');
+      toast.error('Failed to end story');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="story-creator">
+    <div className="create-story">
       <h2>{currentStory ? 'Continue Story' : 'Create New Story'}</h2>
-
-      {!currentStory && (
-        <div className="image-upload">
-          <label htmlFor="image-input" className="upload-label">
-            <div className="upload-placeholder">
-              <span>📸 Click to upload images</span>
-              <small>or drag and drop them here</small>
-            </div>
-            <input
-              type="file"
-              id="image-input"
-              accept="image/*"
-              multiple
-              onChange={handleFileChange}
-              className="file-input"
-            />
-          </label>
+      
+      <form onSubmit={handleSubmit} onDragEnter={handleDrag}>
+        <div 
+          className={`upload-section ${dragActive ? 'active' : ''}`}
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+        >
+          <div className="upload-content">
+            <FiUpload className="upload-icon" />
+            <label className="file-input-label">
+              Choose Images
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+                disabled={loading}
+              />
+            </label>
+            <p className="upload-hint">
+              or drag and drop your images here
+            </p>
+          </div>
 
           {previewUrls.length > 0 && (
-            <div className="image-previews">
+            <div className="preview-images">
               {previewUrls.map((url, index) => (
-                <div key={index} className="preview-container">
+                <div key={index} className="preview-image">
                   <img src={url} alt={`Preview ${index + 1}`} />
+                  <button
+                    type="button"
+                    className="remove-image"
+                    onClick={() => handleRemoveImage(index)}
+                    disabled={loading}
+                  >
+                    <FiX />
+                  </button>
                 </div>
               ))}
             </div>
           )}
         </div>
-      )}
 
-      <div className="prompt-section">
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder={currentStory ? "Enter prompt to continue the story..." : "Enter a prompt to start your story..."}
-          className="prompt-input"
-        />
+        <div className="form-group">
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder={currentStory 
+              ? "Enter a prompt to continue the story..."
+              : "Enter a prompt for your story (optional)"}
+            className="form-control"
+            rows="4"
+            disabled={loading}
+          />
+        </div>
 
-        <div className="action-buttons">
-          {currentStory ? (
-            <>
-              <button
-                onClick={handleContinue}
-                disabled={loading}
-                className="continue-btn"
-              >
-                {loading ? 'Processing...' : 'Continue Story'}
-              </button>
-              {!currentStory.isComplete && (
-                <button
-                  onClick={handleEndStory}
-                  disabled={loading}
-                  className="end-btn"
-                >
-                  End Story
-                </button>
-              )}
-            </>
-          ) : (
+        <div className="story-actions">
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={loading || (files.length === 0 && !currentStory)}
+          >
+            {loading ? (
+              <span className="loading-spinner" />
+            ) : (
+              <>
+                <FiSend />
+                {currentStory ? 'Continue Story' : 'Generate Story'}
+              </>
+            )}
+          </button>
+
+          {currentStory && !currentStory.isComplete && (
             <button
-              onClick={handleSubmit}
-              disabled={loading || selectedFiles.length === 0}
-              className="submit-btn"
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleEndStory}
+              disabled={loading}
             >
-              {loading ? 'Processing...' : 'Generate Story'}
+              <FiX />
+              End Story
             </button>
           )}
         </div>
-      </div>
+      </form>
 
       {currentStory && (
         <div className="current-story">
-          <h3>Current Story</h3>
-          <div className="story-preview">
-            {currentStory.imageUrls && (
-              <div className="story-images">
-                {currentStory.imageUrls.map((url, index) => (
-                  <img
-                    key={index}
-                    src={`http://localhost:5000${url}`}
-                    alt={`Story image ${index + 1}`}
-                    className="story-image"
-                  />
-                ))}
+          <h3>{currentStory.title}</h3>
+          <p>{currentStory.story}</p>
+          <div className="story-images">
+            {currentStory.imageUrls.map((url, index) => (
+              <div key={index} className="story-image">
+                <img src={url} alt={`Story image ${index + 1}`} />
               </div>
-            )}
-            <div className="story-text">
-              {currentStory.story}
-            </div>
+            ))}
           </div>
         </div>
       )}

@@ -1,71 +1,118 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+import { FiBook, FiPenTool, FiCheck, FiClock } from 'react-icons/fi';
 import './Statistics.css';
 
-function Statistics({ stories }) {
-  const stats = useMemo(() => {
-    const totalStories = stories.length;
-    const completedStories = stories.filter(s => s.isComplete).length;
-    const totalImages = stories.reduce((acc, story) => acc + (story.imageUrls?.length || 0), 0);
-    
-    const storiesByDate = stories.reduce((acc, story) => {
-      const date = new Date(story.createdAt || story.timestamp).toLocaleDateString();
-      acc[date] = (acc[date] || 0) + 1;
-      return acc;
-    }, {});
+function Statistics() {
+  const [stats, setStats] = useState({
+    totalStories: 0,
+    completedStories: 0,
+    totalWords: 0,
+    averageWordsPerStory: 0,
+    genreStats: {},
+    languageStats: {}
+  });
+  const [loading, setLoading] = useState(true);
 
-    const averageImagesPerStory = totalStories ? (totalImages / totalStories).toFixed(1) : 0;
+  useEffect(() => {
+    fetchStatistics();
+  }, []);
 
-    return {
-      totalStories,
-      completedStories,
-      totalImages,
-      averageImagesPerStory,
-      storiesByDate
-    };
-  }, [stories]);
+  const fetchStatistics = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/statistics');
+      if (!response.ok) throw new Error('Failed to fetch statistics');
+      const data = await response.json();
+      setStats(data);
+    } catch (error) {
+      console.error('Error fetching statistics:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const StatCard = ({ icon, title, value, subtitle }) => (
+    <div className="stat-card">
+      <div className="stat-icon">{icon}</div>
+      <div className="stat-content">
+        <h3>{title}</h3>
+        <div className="stat-value">{value}</div>
+        {subtitle && <div className="stat-subtitle">{subtitle}</div>}
+      </div>
+    </div>
+  );
+
+  if (loading) {
+    return (
+      <div className="statistics loading">
+        <div className="loading-spinner" />
+      </div>
+    );
+  }
 
   return (
-    <div className="statistics-container">
+    <div className="statistics">
       <h2>Story Statistics</h2>
-      
+
       <div className="stats-grid">
-        <div className="stat-card">
-          <h3>Total Stories</h3>
-          <p className="stat-number">{stats.totalStories}</p>
-        </div>
-        
-        <div className="stat-card">
-          <h3>Completed Stories</h3>
-          <p className="stat-number">{stats.completedStories}</p>
-        </div>
-        
-        <div className="stat-card">
-          <h3>Total Images</h3>
-          <p className="stat-number">{stats.totalImages}</p>
-        </div>
-        
-        <div className="stat-card">
-          <h3>Avg. Images per Story</h3>
-          <p className="stat-number">{stats.averageImagesPerStory}</p>
-        </div>
+        <StatCard
+          icon={<FiBook />}
+          title="Total Stories"
+          value={stats.totalStories}
+        />
+        <StatCard
+          icon={<FiCheck />}
+          title="Completed Stories"
+          value={stats.completedStories || 0}
+        />
+        <StatCard
+          icon={<FiPenTool />}
+          title="Total Words"
+          value={stats.totalWords.toLocaleString()}
+        />
+        <StatCard
+          icon={<FiClock />}
+          title="Average Words"
+          value={stats.averageWordsPerStory.toLocaleString()}
+          subtitle="per story"
+        />
       </div>
 
-      <div className="charts-container">
-        <div className="chart-card">
-          <h3>Stories by Date</h3>
-          <div className="date-stats">
-            {Object.entries(stats.storiesByDate).map(([date, count]) => (
-              <div key={date} className="date-stat-item">
-                <span className="date">{date}</span>
-                <div className="bar-container">
-                  <div 
-                    className="bar" 
-                    style={{ 
-                      width: `${(count / Math.max(...Object.values(stats.storiesByDate))) * 100}%` 
-                    }}
-                  />
-                  <span className="count">{count}</span>
+      <div className="stats-details">
+        <div className="stats-section">
+          <h3>Genre Distribution</h3>
+          <div className="stats-chart">
+            {Object.entries(stats.genreStats || {}).map(([genre, count]) => (
+              <div key={genre} className="chart-bar">
+                <div className="chart-label">
+                  <span>{genre}</span>
+                  <span>{count}</span>
                 </div>
+                <div 
+                  className="chart-fill"
+                  style={{
+                    width: `${(count / stats.totalStories) * 100}%`
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="stats-section">
+          <h3>Language Distribution</h3>
+          <div className="stats-chart">
+            {Object.entries(stats.languageStats || {}).map(([language, count]) => (
+              <div key={language} className="chart-bar">
+                <div className="chart-label">
+                  <span>{language}</span>
+                  <span>{count}</span>
+                </div>
+                <div 
+                  className="chart-fill"
+                  style={{
+                    width: `${(count / stats.totalStories) * 100}%`
+                  }}
+                />
               </div>
             ))}
           </div>

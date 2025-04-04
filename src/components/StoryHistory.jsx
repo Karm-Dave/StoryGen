@@ -1,102 +1,147 @@
-import React from 'react';
-import PropTypes from 'prop-types';
+import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
+import { FiTrash2, FiEdit, FiEye, FiChevronRight } from 'react-icons/fi';
 
-const StoryHistory = ({ stories, onStorySelect, favorites, onToggleFavorite, onDelete }) => {
-  const formatDate = (timestamp) => {
-    return new Date(timestamp).toLocaleDateString('en-US', {
+function StoryHistory({ onStorySelect, onViewChange }) {
+  const [stories, setStories] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchStories();
+  }, []);
+
+  const fetchStories = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:5000/api/stories');
+      if (!response.ok) throw new Error('Failed to fetch stories');
+      const data = await response.json();
+      setStories(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    } catch (error) {
+      console.error('Error fetching stories:', error);
+      toast.error('Failed to load stories');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this story?')) return;
+
+    try {
+      setLoading(true);
+      const response = await fetch(`http://localhost:5000/api/stories/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete story');
+
+      setStories(prev => prev.filter(story => story.id !== id));
+      toast.success('Story deleted successfully');
+    } catch (error) {
+      console.error('Error deleting story:', error);
+      toast.error('Failed to delete story');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleContinue = (story) => {
+    onStorySelect(story);
+    onViewChange('create');
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
   };
 
-  if (!stories || stories.length === 0) {
-    return (
-      <div className="empty-state">
-        <p>No stories found. Create your first story!</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="story-grid">
-      {stories.map((story) => (
-        <div key={story.id} className="story-card">
-          <div className="story-card-header">
-            <h3>{story.title || 'Untitled Story'}</h3>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleFavorite(story);
-              }}
-              className={`favorite-btn ${favorites.some(f => f.id === story.id) ? 'active' : ''}`}
-            >
-              {favorites.some(f => f.id === story.id) ? '★' : '☆'}
-            </button>
-          </div>
-          
-          <div className="story-card-content" onClick={() => onStorySelect(story)}>
-            {story.imageUrls && story.imageUrls.length > 0 && (
-              <div className="story-card-images">
-                {story.imageUrls.slice(0, 4).map((url, index) => (
-                  <img
-                    key={index}
-                    src={url}
-                    alt={`Story image ${index + 1}`}
-                    className="story-thumbnail"
-                  />
-                ))}
-              </div>
-            )}
-            
-            <div className="story-card-details">
-              {story.prompt && (
-                <p className="story-prompt">"{story.prompt}"</p>
+    <div className="story-history">
+      <h2>Story History</h2>
+      
+      {loading && (
+        <div className="loading-state">
+          <div className="loading-spinner" />
+        </div>
+      )}
+
+      {!loading && stories.length === 0 && (
+        <div className="empty-state">
+          <p>No stories found. Create your first story!</p>
+          <button 
+            className="btn btn-primary"
+            onClick={() => onViewChange('create')}
+          >
+            Create Story
+          </button>
+        </div>
+      )}
+
+      <div className="story-grid">
+        {stories.map(story => (
+          <div key={story.id} className="story-card">
+            <div className="story-card-header">
+              <h3>{story.title}</h3>
+              <span className="story-date">{formatDate(story.createdAt)}</span>
+            </div>
+
+            <div className="story-preview">
+              {story.imageUrls[0] && (
+                <img 
+                  src={story.imageUrls[0]} 
+                  alt={`Preview for ${story.title}`}
+                  className="story-thumbnail"
+                />
               )}
-              <p className="story-preview">
-                {story.story.substring(0, 150)}...
-              </p>
-              <div className="story-metadata">
-                <span className="story-genre">{story.genre || 'General'}</span>
-                <span className="story-language">{story.language || 'English'}</span>
-                <span className="story-date">{formatDate(story.timestamp)}</span>
+              <p>{story.story.slice(0, 150)}...</p>
+            </div>
+
+            <div className="story-card-footer">
+              <div className="story-status">
+                {story.isComplete ? (
+                  <span className="status complete">Completed</span>
+                ) : (
+                  <span className="status ongoing">Ongoing</span>
+                )}
+              </div>
+
+              <div className="story-actions">
+                <button
+                  className="action-btn view"
+                  onClick={() => handleContinue(story)}
+                  title="View story"
+                >
+                  <FiEye />
+                </button>
+                {!story.isComplete && (
+                  <button
+                    className="action-btn edit"
+                    onClick={() => handleContinue(story)}
+                    title="Continue story"
+                  >
+                    <FiEdit />
+                  </button>
+                )}
+                <button
+                  className="action-btn delete"
+                  onClick={() => handleDelete(story.id)}
+                  title="Delete story"
+                >
+                  <FiTrash2 />
+                </button>
               </div>
             </div>
           </div>
-          <div className="story-actions">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(story);
-              }}
-              className="delete-btn"
-            >
-              🗑️
-            </button>
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
-};
-
-StoryHistory.propTypes = {
-  stories: PropTypes.arrayOf(PropTypes.shape({
-    id: PropTypes.string.isRequired,
-    title: PropTypes.string,
-    story: PropTypes.string.isRequired,
-    prompt: PropTypes.string,
-    genre: PropTypes.string,
-    language: PropTypes.string,
-    imageUrls: PropTypes.arrayOf(PropTypes.string),
-    timestamp: PropTypes.string.isRequired
-  })).isRequired,
-  onStorySelect: PropTypes.func.isRequired,
-  favorites: PropTypes.array.isRequired,
-  onToggleFavorite: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired
-};
+}
 
 export default StoryHistory; 
