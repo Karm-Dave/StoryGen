@@ -23,37 +23,92 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
+    // Sanitize filename and add timestamp
+    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.]/g, '_');
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    cb(null, uniqueSuffix + '-' + sanitizedName);
   }
 });
 
-const upload = multer({ 
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+  if (!allowedTypes.includes(file.mimetype)) {
+    return cb(new Error('Invalid file type. Only JPEG, PNG and GIF are allowed.'), false);
+  }
+  
+  // Check file size before processing
+  const maxSize = 4 * 1024 * 1024; // 4MB
+  if (file.size > maxSize) {
+    return cb(new Error('File too large. Maximum size is 4MB.'), false);
+  }
+  
+  cb(null, true);
+};
+
+const upload = multer({
   storage: storage,
+  fileFilter: fileFilter,
   limits: {
     fileSize: 4 * 1024 * 1024, // 4MB limit
     files: 5 // Maximum 5 files
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG and GIF are allowed.'));
-    }
   }
-});
+}).array('images', 5);
 
-// Enable CORS
-app.use(cors());
+// Custom error handling middleware for multer
+const handleUpload = (req, res, next) => {
+  upload(req, res, function(err) {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          error: 'File too large',
+          message: 'Maximum file size is 4MB'
+        });
+      }
+      if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({
+          error: 'Too many files',
+          message: 'Maximum 5 files allowed'
+        });
+      }
+      return res.status(400).json({
+        error: 'Upload error',
+        message: err.message
+      });
+    } else if (err) {
+      return res.status(400).json({
+        error: 'Invalid file',
+        message: err.message
+      });
+    }
+    next();
+  });
+};
+
+// Enable CORS with options
+app.use(cors({
+  origin: 'http://localhost:5173', // Replace with your frontend URL
+  methods: ['GET', 'POST', 'DELETE'],
+  allowedHeaders: ['Content-Type']
+}));
 
 // Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from the stories directory
-app.use('/stories', express.static(path.join(__dirname, 'stories')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve static files with proper headers
+app.use('/stories', express.static(path.join(__dirname, 'stories'), {
+  maxAge: '1d',
+  etag: true
+}));
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  maxAge: '1d',
+  etag: true,
+  setHeaders: function (res, path) {
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Content-Type', 'image/jpeg');
+  }
+}));
 
 // Initialize stories array
 let stories = [];
@@ -81,6 +136,14 @@ const loadStories = () => {
         if (fs.existsSync(storyPath)) {
           try {
             const storyData = JSON.parse(fs.readFileSync(storyPath, 'utf8'));
+            // Validate and clean up image URLs
+            if (storyData.imageUrls) {
+              storyData.imageUrls = storyData.imageUrls.map(url => {
+                if (!url) return null;
+                // Ensure URL starts with /uploads/
+                return url.startsWith('/uploads/') ? url : `/uploads/${path.basename(url)}`;
+              }).filter(url => url !== null);
+            }
             return { ...storyData, id: folderId };
           } catch (err) {
             console.error(`Error reading story ${folderId}:`, err);
@@ -105,6 +168,10 @@ stories = loadStories();
 // Helper function to generate image description
 async function generateImageDescription(imagePath) {
   try {
+    if (!fs.existsSync(imagePath)) {
+      throw new Error('Image file not found');
+    }
+
     const imageData = fs.readFileSync(imagePath);
     const imageBase64 = imageData.toString('base64');
     
@@ -123,12 +190,12 @@ async function generateImageDescription(imagePath) {
     return result.response.text();
   } catch (error) {
     console.error('Error generating image description:', error);
-    return 'Unable to describe image';
+    throw new Error('Failed to generate image description: ' + error.message);
   }
 }
 
 // Helper function to generate story
-async function generateStory(prompt, genre = 'general', language = 'english', branching = false) {
+async function generateStory(prompt, genre = 'general', language = 'english') {
   try {
     let genrePrompt = '';
     
@@ -150,26 +217,24 @@ async function generateStory(prompt, genre = 'general', language = 'english', br
         genrePrompt = 'Create a horror story with suspense, tension, and elements of fear and surprise.';
         break;
       default:
-        genrePrompt = 'Create a general story with engaging characters and plot.';
+        genrePrompt = 'Create an engaging story with interesting characters and plot.';
     }
-    
-    // Add branching instructions if requested
-    const branchingPrompt = branching ? 
-      'Include at least two possible branching points in the story where the narrative could take different directions. Mark these with [BRANCH POINT] followed by a brief description of the alternative path.' : 
-      '';
     
     // Add language instruction
     const languagePrompt = language !== 'english' ? 
       `Write the story in ${language}.` : 
       '';
     
-    const fullPrompt = `${genrePrompt} ${prompt} ${branchingPrompt} ${languagePrompt}`;
+    const fullPrompt = `${genrePrompt} ${prompt} ${languagePrompt}`;
     
     const result = await model.generateContent(fullPrompt);
+    if (!result || !result.response) {
+      throw new Error('Failed to generate story content');
+    }
     return result.response.text();
   } catch (error) {
     console.error('Error generating story:', error);
-    throw error;
+    throw new Error('Failed to generate story: ' + error.message);
   }
 }
 
@@ -223,7 +288,7 @@ async function generateTitle(prompt) {
 }
 
 // Route to handle image uploads
-app.post('/api/upload', upload.array('images'), (req, res) => {
+app.post('/api/upload', handleUpload, (req, res) => {
   try {
     const files = req.files;
     if (!files || files.length === 0) {
@@ -239,11 +304,12 @@ app.post('/api/upload', upload.array('images'), (req, res) => {
 });
 
 // Route to handle story generation
-app.post('/api/generate', upload.array('images'), async (req, res) => {
+app.post('/api/generate', handleUpload, async (req, res) => {
   try {
     const files = req.files;
     const prompt = req.body.prompt || '';
-    const storyId = req.body.storyId;
+    const genre = req.body.genre || 'general';
+    const language = req.body.language || 'english';
 
     if (!files || files.length === 0) {
       return res.status(400).json({ error: 'No images uploaded' });
@@ -259,17 +325,18 @@ app.post('/api/generate', upload.array('images'), async (req, res) => {
 
     // Generate story and title
     const [story, title] = await Promise.all([
-      generateStory(fullPrompt),
+      generateStory(fullPrompt, genre, language),
       generateTitle(fullPrompt)
     ]);
 
     // Create story object
     const newStory = {
-      id: storyId || Date.now().toString(),
+      id: Date.now().toString(),
       title,
       story,
+      genre,
+      language,
       imageUrls: files.map(file => `/uploads/${file.filename}`),
-      isComplete: false,
       createdAt: new Date().toISOString()
     };
 
@@ -279,12 +346,15 @@ app.post('/api/generate', upload.array('images'), async (req, res) => {
     res.json(newStory);
   } catch (error) {
     console.error('Error generating story:', error);
-    res.status(500).json({ error: 'Failed to generate story' });
+    res.status(500).json({ 
+      error: 'Failed to generate story',
+      message: error.message || 'An error occurred while generating the story'
+    });
   }
 });
 
 // Route to continue story
-app.post('/api/stories/:id/continue', upload.array('images'), async (req, res) => {
+app.post('/api/stories/:id/continue', handleUpload, async (req, res) => {
   try {
     const storyId = req.params.id;
     const files = req.files;
@@ -421,55 +491,63 @@ app.get('/api/languages', (req, res) => {
 });
 
 // Route to get statistics
-app.get('/api/statistics', (req, res) => {
+app.get('/api/stats', (req, res) => {
   try {
     const storiesDir = path.join(__dirname, 'stories');
     if (!fs.existsSync(storiesDir)) {
       return res.json({
-        genreStats: {},
-        languageStats: {},
-        totalWords: 0,
         totalStories: 0,
-        averageWordsPerStory: 0
+        totalImages: 0,
+        averageLength: 0,
+        genreDistribution: {},
+        languageDistribution: {}
       });
     }
     
     const storyFolders = fs.readdirSync(storiesDir);
     const stats = {
-      genreStats: {},
-      languageStats: {},
+      totalStories: 0,
+      totalImages: 0,
       totalWords: 0,
-      totalStories: 0
+      genreDistribution: {},
+      languageDistribution: {}
     };
     
     storyFolders.forEach(folder => {
-      const metadataPath = path.join(storiesDir, folder, 'metadata.json');
-      if (fs.existsSync(metadataPath)) {
+      const storyPath = path.join(storiesDir, folder, 'story.json');
+      if (fs.existsSync(storyPath)) {
         try {
-          const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
-          if (metadata && metadata.story) {
-            // Count genres
-            const genre = metadata.genre || 'general';
-            stats.genreStats[genre] = (stats.genreStats[genre] || 0) + 1;
-            
-            // Count languages
-            const language = metadata.language || 'english';
-            stats.languageStats[language] = (stats.languageStats[language] || 0) + 1;
-            
-            // Count words
-            const words = metadata.story.split(/\s+/).filter(word => word.length > 0);
-            stats.totalWords += words.length;
-            stats.totalStories++;
+          const storyData = JSON.parse(fs.readFileSync(storyPath, 'utf8'));
+          
+          // Count genres
+          const genre = storyData.genre || 'general';
+          stats.genreDistribution[genre] = (stats.genreDistribution[genre] || 0) + 1;
+          
+          // Count languages
+          const language = storyData.language || 'english';
+          stats.languageDistribution[language] = (stats.languageDistribution[language] || 0) + 1;
+          
+          // Count images
+          if (storyData.imageUrls) {
+            stats.totalImages += storyData.imageUrls.length;
           }
+          
+          // Count words
+          if (storyData.story) {
+            const words = storyData.story.split(/\s+/).filter(word => word.length > 0);
+            stats.totalWords += words.length;
+          }
+          
+          stats.totalStories++;
         } catch (err) {
-          console.error(`Error processing metadata for folder ${folder}:`, err);
+          console.error(`Error processing story for folder ${folder}:`, err);
         }
       }
     });
     
     res.json({
       ...stats,
-      averageWordsPerStory: Math.round(stats.totalWords / stats.totalStories) || 0
+      averageLength: Math.round(stats.totalWords / stats.totalStories) || 0
     });
   } catch (error) {
     console.error('Error fetching statistics:', error);
@@ -564,6 +642,24 @@ const saveStory = (story) => {
     stories[index] = story;
   }
 };
+
+// Route to get a single story by ID
+app.get('/api/stories/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const storyPath = path.join(__dirname, 'stories', id, 'story.json');
+    
+    if (!fs.existsSync(storyPath)) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+    
+    const storyData = JSON.parse(fs.readFileSync(storyPath, 'utf8'));
+    res.json({ ...storyData, id });
+  } catch (error) {
+    console.error('Error getting story:', error);
+    res.status(500).json({ error: 'Failed to get story' });
+  }
+});
 
 // Start the server
 app.listen(port, () => {

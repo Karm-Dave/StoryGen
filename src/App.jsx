@@ -5,6 +5,7 @@ import './App.css';
 import StoryCreator from './components/StoryCreator';
 import StoryHistory from './components/StoryHistory';
 import Statistics from './components/Statistics';
+import StoryDetail from './components/StoryDetail';
 
 function App() {
   const [theme, setTheme] = useState('light');
@@ -50,6 +51,7 @@ function App() {
             <Route path="/" element={<StoryCreator />} />
             <Route path="/history" element={<StoryHistory />} />
             <Route path="/statistics" element={<Statistics />} />
+            <Route path="/story/:id" element={<StoryDetail />} />
           </Routes>
         </main>
       </div>

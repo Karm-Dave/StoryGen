@@ -1,18 +1,18 @@
 .statistics {
   padding: 2rem;
-  background-color: var(--bg-color);
-  border-radius: 8px;
-  animation: fadeIn 0.5s ease-out;
+  background: var(--bg-color);
+  border-radius: 1rem;
+  animation: fadeIn 0.5s ease;
 }
 
 .statistics h2 {
-  font-family: var(--font-heading);
-  color: var(--heading-color);
-  font-size: 2rem;
-  font-weight: 700;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid var(--accent-primary);
+  font-family: 'Poppins', sans-serif;
+  color: var(--text-color);
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--border-color);
 }
 
 .statistics.loading {
@@ -25,45 +25,49 @@
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 2rem;
-  margin-bottom: 3rem;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .stat-card {
-  background-color: var(--bg-color-alt);
+  background: var(--card-bg);
+  border-radius: 0.5rem;
   padding: 1.5rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+  box-shadow: 0 2px 8px var(--shadow-color);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 30px var(--shadow-color);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow-color);
 }
 
 .stat-icon {
   font-size: 2rem;
+  color: var(--accent-color);
   margin-bottom: 1rem;
-  color: var(--accent-primary);
 }
 
-.stat-content {
-  margin-top: 1rem;
-}
-
-.stat-value {
-  font-family: var(--font-heading);
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--heading-color);
+.stat-content h3 {
+  font-family: 'Poppins', sans-serif;
+  color: var(--text-color);
+  font-size: 1rem;
+  font-weight: 500;
   margin-bottom: 0.5rem;
 }
 
+.stat-value {
+  font-family: 'Roboto Mono', monospace;
+  color: var(--text-color);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
 .stat-subtitle {
-  font-family: var(--font-body);
-  color: var(--text-color-medium);
-  font-size: 0.9rem;
+  font-family: 'Roboto Mono', monospace;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
 }
 
 .stats-details {
@@ -164,7 +168,7 @@
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -180,7 +184,6 @@
 
   .stats-grid {
     grid-template-columns: 1fr;
-    gap: 1rem;
   }
 
   .stats-section {
@@ -238,4 +241,101 @@
 
 .dark-mode .bar {
   background: #2980b9;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.pie-chart {
+  background: var(--card-bg);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px var(--shadow-color);
+}
+
+.pie-chart h3 {
+  color: var(--text-color);
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.pie-chart-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.pie-chart svg {
+  width: 200px;
+  height: 200px;
+  transform: rotate(-90deg);
+}
+
+.pie-chart-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legend-color {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.25rem;
+}
+
+.legend-label {
+  color: var(--text-color);
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.9rem;
+  min-width: 100px;
+}
+
+.legend-value {
+  color: var(--text-color);
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.loading-spinner {
+  width: 3rem;
+  height: 3rem;
+  border: 4px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pie-chart-container {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .pie-chart svg {
+    width: 150px;
+    height: 150px;
+  }
 } 

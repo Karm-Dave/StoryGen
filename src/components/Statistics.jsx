@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { FiBook, FiPenTool, FiCheck, FiClock } from 'react-icons/fi';
+import { FaBook, FaImage, FaClock, FaChartPie } from 'react-icons/fa';
 import './Statistics.css';
 
 function Statistics() {
   const [stats, setStats] = useState({
     totalStories: 0,
-    completedStories: 0,
-    totalWords: 0,
-    averageWordsPerStory: 0,
-    genreStats: {},
-    languageStats: {}
+    totalImages: 0,
+    averageLength: 0,
+    genreDistribution: {},
+    languageDistribution: {}
   });
   const [loading, setLoading] = useState(true);
 
@@ -19,7 +18,7 @@ function Statistics() {
 
   const fetchStatistics = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/statistics');
+      const response = await fetch('http://localhost:5000/api/stats');
       if (!response.ok) throw new Error('Failed to fetch statistics');
       const data = await response.json();
       setStats(data);
@@ -28,6 +27,57 @@ function Statistics() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderPieChart = (data, title) => {
+    if (!data || Object.keys(data).length === 0) {
+      return (
+        <div className="pie-chart">
+          <h3>{title}</h3>
+          <p>No data available</p>
+        </div>
+      );
+    }
+
+    const total = Object.values(data).reduce((sum, value) => sum + value, 0);
+    let currentAngle = 0;
+    const colors = ['#268bd2', '#2aa198', '#859900', '#b58900', '#cb4b16', '#d33682', '#6c71c4', '#93a1a1'];
+
+    return (
+      <div className="pie-chart">
+        <h3>{title}</h3>
+        <div className="pie-chart-container">
+          <svg viewBox="0 0 100 100">
+            {Object.entries(data).map(([key, value], index) => {
+              const percentage = (value / total) * 100;
+              const angle = (percentage / 100) * 360;
+              const x1 = 50 + 40 * Math.cos((currentAngle * Math.PI) / 180);
+              const y1 = 50 + 40 * Math.sin((currentAngle * Math.PI) / 180);
+              currentAngle += angle;
+              const x2 = 50 + 40 * Math.cos((currentAngle * Math.PI) / 180);
+              const y2 = 50 + 40 * Math.sin((currentAngle * Math.PI) / 180);
+
+              return (
+                <path
+                  key={key}
+                  d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${angle > 180 ? 1 : 0} 1 ${x2} ${y2} Z`}
+                  fill={colors[index % colors.length]}
+                />
+              );
+            })}
+          </svg>
+          <div className="pie-chart-legend">
+            {Object.entries(data).map(([key, value], index) => (
+              <div key={key} className="legend-item">
+                <span className="legend-color" style={{ backgroundColor: colors[index % colors.length] }} />
+                <span className="legend-label">{key.charAt(0).toUpperCase() + key.slice(1)}</span>
+                <span className="legend-value">{((value / total) * 100).toFixed(1)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const StatCard = ({ icon, title, value, subtitle }) => (
@@ -55,68 +105,26 @@ function Statistics() {
 
       <div className="stats-grid">
         <StatCard
-          icon={<FiBook />}
+          icon={<FaBook />}
           title="Total Stories"
           value={stats.totalStories}
         />
         <StatCard
-          icon={<FiCheck />}
-          title="Completed Stories"
-          value={stats.completedStories || 0}
+          icon={<FaImage />}
+          title="Total Images"
+          value={stats.totalImages}
         />
         <StatCard
-          icon={<FiPenTool />}
-          title="Total Words"
-          value={stats.totalWords.toLocaleString()}
-        />
-        <StatCard
-          icon={<FiClock />}
-          title="Average Words"
-          value={stats.averageWordsPerStory.toLocaleString()}
-          subtitle="per story"
+          icon={<FaClock />}
+          title="Average Length"
+          value={stats.averageLength}
+          subtitle="words per story"
         />
       </div>
 
-      <div className="stats-details">
-        <div className="stats-section">
-          <h3>Genre Distribution</h3>
-          <div className="stats-chart">
-            {Object.entries(stats.genreStats || {}).map(([genre, count]) => (
-              <div key={genre} className="chart-bar">
-                <div className="chart-label">
-                  <span>{genre}</span>
-                  <span>{count}</span>
-                </div>
-                <div 
-                  className="chart-fill"
-                  style={{
-                    width: `${(count / stats.totalStories) * 100}%`
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="stats-section">
-          <h3>Language Distribution</h3>
-          <div className="stats-chart">
-            {Object.entries(stats.languageStats || {}).map(([language, count]) => (
-              <div key={language} className="chart-bar">
-                <div className="chart-label">
-                  <span>{language}</span>
-                  <span>{count}</span>
-                </div>
-                <div 
-                  className="chart-fill"
-                  style={{
-                    width: `${(count / stats.totalStories) * 100}%`
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="charts-grid">
+        {renderPieChart(stats.genreDistribution, 'Genre Distribution')}
+        {renderPieChart(stats.languageDistribution, 'Language Distribution')}
       </div>
     </div>
   );

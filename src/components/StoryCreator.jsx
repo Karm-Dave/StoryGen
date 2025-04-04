@@ -1,221 +1,255 @@
-import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { FaPlus, FaTrash, FaSpinner, FaCheck, FaTimes } from 'react-icons/fa';
+import React, { useState } from 'react';
+import axios from 'axios';
+import { FaUpload, FaSpinner, FaCheck, FaTimes } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
 import './StoryCreator.css';
 
-const StoryCreator = () => {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+function StoryCreator() {
   const [images, setImages] = useState([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedStory, setGeneratedStory] = useState('');
-  const [storyParts, setStoryParts] = useState([]);
-  const [showContinueOptions, setShowContinueOptions] = useState(false);
-  const fileInputRef = useRef(null);
-  const navigate = useNavigate();
+  const [uploadedImages, setUploadedImages] = useState([]);
+  const [prompt, setPrompt] = useState('');
+  const [genre, setGenre] = useState('fantasy');
+  const [language, setLanguage] = useState('english');
+  const [loading, setLoading] = useState(false);
+  const [generatedStory, setGeneratedStory] = useState(null);
 
-  const handleImageUpload = (e) => {
+  const genres = [
+    { id: 'fantasy', name: 'Fantasy' },
+    { id: 'scifi', name: 'Science Fiction' },
+    { id: 'mystery', name: 'Mystery' },
+    { id: 'romance', name: 'Romance' },
+    { id: 'horror', name: 'Horror' }
+  ];
+
+  const languages = [
+    { id: 'english', name: 'English' },
+    { id: 'spanish', name: 'Spanish' },
+    { id: 'french', name: 'French' },
+    { id: 'german', name: 'German' },
+    { id: 'italian', name: 'Italian' }
+  ];
+
+  const validateImages = (files) => {
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    
+    return files.every(file => {
+      if (!validTypes.includes(file.type)) {
+        toast.error(`${file.name} is not a valid image type. Please use JPG, PNG, or GIF.`);
+        return false;
+      }
+      if (file.size > maxSize) {
+        toast.error(`${file.name} is too large. Maximum size is 5MB.`);
+        return false;
+      }
+      return true;
+    });
+  };
+
+  const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length + images.length > 5) {
-      toast.error('Maximum 5 images allowed');
+    if (files.length > 5) {
+      toast.error('You can only upload up to 5 images at a time.');
       return;
     }
-    setImages([...images, ...files]);
+    
+    if (!validateImages(files)) {
+      return;
+    }
+    
+    setImages(files);
   };
 
-  const removeImage = (index) => {
-    setImages(images.filter((_, i) => i !== index));
-  };
-
-  const generateStory = async () => {
-    if (!title || !description || images.length === 0) {
-      toast.error('Please fill in all fields and upload at least one image');
+  const handleUpload = async () => {
+    if (images.length === 0) {
+      toast.error('Please select images to upload first.');
       return;
     }
 
-    setIsGenerating(true);
+    const formData = new FormData();
+    images.forEach((image) => {
+      formData.append('images', image);
+    });
+
     try {
-      const formData = new FormData();
-      formData.append('title', title);
-      formData.append('description', description);
-      images.forEach((image) => formData.append('images', image));
-
-      const response = await fetch('http://localhost:5000/api/generate-story', {
-        method: 'POST',
-        body: formData,
+      const response = await axios.post('http://localhost:5000/api/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          // You could add a progress bar here if desired
+        },
       });
+      
+      if (response.data.files && response.data.files.length > 0) {
+        setUploadedImages(response.data.files);
+        toast.success('Images uploaded successfully!');
+      } else {
+        throw new Error('No files were uploaded');
+      }
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      toast.error(error.response?.data?.message || 'Failed to upload images. Please try again.');
+    }
+  };
 
-      if (!response.ok) {
+  const handleGenerate = async () => {
+    if (uploadedImages.length === 0) {
+      toast.error('Please upload at least one image first.');
+      return;
+    }
+
+    setLoading(true);
+    const formData = new FormData();
+    
+    // Send the actual image files
+    images.forEach((image) => {
+      formData.append('images', image);
+    });
+    
+    formData.append('prompt', prompt);
+    formData.append('genre', genre);
+    formData.append('language', language);
+
+    try {
+      const response = await axios.post('http://localhost:5000/api/generate', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      if (response.data) {
+        setGeneratedStory(response.data);
+        toast.success('Story generated successfully!');
+      } else {
         throw new Error('Failed to generate story');
       }
-
-      const data = await response.json();
-      setGeneratedStory(data.story);
-      setStoryParts([data.story]);
-      setShowContinueOptions(true);
-      toast.success('Story generated successfully!');
     } catch (error) {
       console.error('Error generating story:', error);
-      toast.error('Failed to generate story. Please try again.');
+      toast.error(
+        error.response?.data?.message || 
+        'Failed to generate story. Please check your API key and try again.'
+      );
     } finally {
-      setIsGenerating(false);
+      setLoading(false);
     }
   };
 
-  const continueStory = async () => {
-    setIsGenerating(true);
-    try {
-      const response = await fetch('http://localhost:5000/api/continue-story', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          previousParts: storyParts,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to continue story');
-      }
-
-      const data = await response.json();
-      setGeneratedStory(data.story);
-      setStoryParts([...storyParts, data.story]);
-      toast.success('Story continued successfully!');
-    } catch (error) {
-      console.error('Error continuing story:', error);
-      toast.error('Failed to continue story. Please try again.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const endStory = async () => {
-    setIsGenerating(true);
-    try {
-      const response = await fetch('http://localhost:5000/api/end-story', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          previousParts: storyParts,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to end story');
-      }
-
-      const data = await response.json();
-      const finalStory = [...storyParts, data.conclusion].join('\n\n');
-      
-      // Save the complete story
-      await fetch('http://localhost:5000/api/save-story', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title,
-          story: finalStory,
-          images: images.map(img => img.name),
-        }),
-      });
-
-      toast.success('Story completed and saved!');
-      navigate('/history');
-    } catch (error) {
-      console.error('Error ending story:', error);
-      toast.error('Failed to end story. Please try again.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const clearForm = () => {
-    setTitle('');
-    setDescription('');
+  const handleClear = () => {
     setImages([]);
-    setGeneratedStory('');
-    setStoryParts([]);
-    setShowContinueOptions(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    setUploadedImages([]);
+    setPrompt('');
+    setGeneratedStory(null);
+    toast.success('Form cleared successfully!');
+  };
+
+  const getImageUrl = (url) => {
+    if (!url) return null;
+    return url.startsWith('http') ? url : `http://localhost:5000${url}`;
   };
 
   return (
     <div className="story-creator">
-      <h2>Create New Story</h2>
+      <h2>Create a New Story</h2>
+      
       <div className="story-form">
         <div className="form-group">
-          <label htmlFor="title">Story Title</label>
-          <input
-            type="text"
-            id="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Enter story title"
-            className="form-input"
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="description">Story Description</label>
-          <textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe your story"
-            className="form-textarea"
-          />
-        </div>
-
-        <div className="form-group">
-          <label>Upload Images (Max 5)</label>
-          <div
-            className="upload-section"
-            onClick={() => fileInputRef.current?.click()}
-          >
+          <label>Upload Images</label>
+          <div className="upload-section" onClick={() => document.getElementById('image-upload').click()}>
             <input
+              id="image-upload"
               type="file"
-              ref={fileInputRef}
-              onChange={handleImageUpload}
-              accept="image/*"
               multiple
+              accept="image/jpeg,image/png,image/gif"
+              onChange={handleImageChange}
               style={{ display: 'none' }}
             />
-            <FaPlus className="upload-icon" />
-            <p>Click to upload images</p>
+            <FaUpload className="upload-icon" />
+            <p>Click to upload images (up to 5)</p>
+            <p className="upload-hint">Supported formats: JPG, PNG, GIF (max 5MB each)</p>
           </div>
-          <div className="preview-grid">
-            {images.map((image, index) => (
-              <div key={index} className="preview-item">
-                <img
-                  src={URL.createObjectURL(image)}
-                  alt={`Preview ${index + 1}`}
-                />
-                <button
-                  className="remove-image"
-                  onClick={() => removeImage(index)}
-                >
-                  <FaTrash />
-                </button>
-              </div>
-            ))}
-          </div>
+          
+          {images.length > 0 && (
+            <button onClick={handleUpload} className="upload-button">
+              Upload Images
+            </button>
+          )}
+          
+          {uploadedImages.length > 0 && (
+            <div className="preview-container">
+              {uploadedImages.map((url, index) => (
+                <div key={index} className="preview-item">
+                  <img 
+                    src={getImageUrl(url)} 
+                    alt={`Preview ${index + 1}`}
+                    onError={(e) => {
+                      console.error(`Failed to load image: ${url}`);
+                      e.target.src = 'https://via.placeholder.com/150?text=Image+Not+Found';
+                    }}
+                  />
+                  <button
+                    className="remove-button"
+                    onClick={() => {
+                      setUploadedImages(uploadedImages.filter((_, i) => i !== index));
+                      toast.success('Image removed');
+                    }}
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="action-buttons">
-          <button
-            className="generate-button"
-            onClick={generateStory}
-            disabled={isGenerating}
+        <div className="form-group">
+          <label>Story Prompt (Optional)</label>
+          <textarea
+            className="form-textarea"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Enter a prompt to guide the story generation..."
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Genre</label>
+          <select
+            className="form-select"
+            value={genre}
+            onChange={(e) => setGenre(e.target.value)}
           >
-            {isGenerating ? (
+            {genres.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>Language</label>
+          <select
+            className="form-select"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+          >
+            {languages.map((lang) => (
+              <option key={lang.id} value={lang.id}>
+                {lang.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="button-group">
+          <button
+            onClick={handleGenerate}
+            className="generate-button"
+            disabled={loading || uploadedImages.length === 0}
+          >
+            {loading ? (
               <>
                 <FaSpinner className="spinner" />
                 Generating...
@@ -224,46 +258,36 @@ const StoryCreator = () => {
               'Generate Story'
             )}
           </button>
-          <button className="clear-button" onClick={clearForm}>
+          <button onClick={handleClear} className="clear-button">
             Clear
           </button>
         </div>
-
-        {generatedStory && (
-          <div className="generated-story">
-            <h3>Generated Story</h3>
-            <p>{generatedStory}</p>
-          </div>
-        )}
-
-        {showContinueOptions && (
-          <div className="continue-options">
-            <button
-              className="continue-button"
-              onClick={continueStory}
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <>
-                  <FaSpinner className="spinner" />
-                  Generating...
-                </>
-              ) : (
-                'Continue Story'
-              )}
-            </button>
-            <button
-              className="end-button"
-              onClick={endStory}
-              disabled={isGenerating}
-            >
-              End Story
-            </button>
-          </div>
-        )}
       </div>
+
+      {generatedStory && (
+        <div className="generated-story">
+          <h3>{generatedStory.title}</h3>
+          <div className="story-images">
+            {generatedStory.imageUrls && generatedStory.imageUrls.map((url, index) => (
+              <div key={index} className="image-container">
+                <img
+                  src={getImageUrl(url)}
+                  alt={`Story image ${index + 1}`}
+                  onError={(e) => {
+                    console.error(`Failed to load image: ${url}`);
+                    e.target.src = 'https://via.placeholder.com/150?text=Image+Not+Found';
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="story-content">
+            <p>{generatedStory.story}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+}
 
 export default StoryCreator; 
